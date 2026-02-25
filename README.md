@@ -20,6 +20,8 @@ GitHubから直接インストールできます。（※Privateリポジトリ�
 ```bash
 pip install git+[https://github.com/Chaim-Weizmann/symple_plot.git](https://github.com/Chaim-Weizmann/symple_plot.git)
 
+```
+
 ## 🚀 基本的な使い方 (Basic Usage)
 
 `create_symple_plots` を使ってグラフ枠を生成し、`plot` や `scatter` メソッドを呼び出します。
@@ -49,7 +51,8 @@ plt.show()
 
 ```
 
-**▼ 出力例:**
+**出力例**
+`images\example1_basic.png`
 
 ---
 
@@ -69,7 +72,8 @@ sp.scatter(x, y, alab=["X", "Large Value"])
 
 ```
 
-**▼ 出力例:**
+**出力例**
+`images\example2_exponent.png`
 
 ### 2. Inset Zoom（自動探索・拡大小窓）
 
@@ -88,7 +92,8 @@ sp.add_inset_zoom(xlim=[7.2, 7.8], bounds='upper left')
 
 ```
 
-**▼ 出力例:**
+**出力例**
+`images\example3_zoom.png`
 
 ### 3. 多項式回帰 (Regression)
 
@@ -107,7 +112,8 @@ sp.Regression(regr=3, directory='./')
 
 ```
 
-**▼ 出力例:**
+**出力例**
+`images\example4_regression.png`
 
 ### 4. 画像プロット (Imshow) と 3D プロット
 
@@ -137,7 +143,8 @@ sp2.tdscatter(
 
 ```
 
-**▼ 出力例:**
+**出力例**
+`images\example5_3d.png`
 
 ---
 
@@ -157,3 +164,5 @@ sp2.tdscatter(
 ---
 
 Copyright (c) 2026 Your Name. All rights reserved.
+
+```
