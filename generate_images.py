@@ -115,7 +115,7 @@ def main():
 
     x6 = np.linspace(0, 5, 20)
     sp_arr6[0].plot(x6, np.exp(x6), alab=["Time", "Growth"], lab="Exponential")
-    sp_arr6[1].scatter(x6, x6**2, alab=["Time", "Value"], size=80, marker='s', lab="Quadratic")
+    sp_arr6[1].scatter(x6, x6**3, alab=["Time", "Value"], size=80, marker='s', lab="Quadratic")
 
     fig6.savefig("images/example6_utils.png", dpi=300, bbox_inches='tight', facecolor='white')
     plt.close(fig6)

@@ -148,7 +148,34 @@ sp2.tdscatter(
 
 ---
 
+### 5. 論文・プレゼン用ユーティリティ (Auto Style & Labels)
+
+論文やスライド作成を加速するため、描画スタイルの一括適用（`style`）と、各パネルへの `(a)`, `(b)` ラベルの自動付与（`auto_label`）をサポートしています。
+
+```python
+# style='slide' で太字・大きな文字に設定。auto_label=True で (a), (b) を自動付与
+fig, sp_arr = create_symple_plots(1, 2, figsize=(10, 4), style='slide', auto_label=True)
+
+x = np.linspace(0, 5, 20)
+sp_arr[0].plot(x, np.exp(x), alab=["Time", "Growth"], lab="Exponential")
+sp_arr[1].scatter(x, x**3, alab=["Time", "Value"], size=80, marker='s', lab="Quadratic")
+```
+
+**▼ 出力例:**
+![Auto Style & Labels](images/example6_utils.png)
+
 ## ⚙️ パラメータ一覧 (Kwargs Reference)
+
+引数の適用先に応じて、2つの表に分けています。
+
+### 1. `create_symple_plots` の引数 (グラフ枠の生成・初期設定)
+
+| 引数名 | 型 | 説明 |
+| --- | --- | --- |
+| `style` | str | `'paper'` または `'slide'` で描画スタイルを一括適用 |
+| `auto_label`| bool | `True`で各パネルの左上に (a), (b)... と自動でラベルを付与 |
+
+### 2. 各種描画メソッドの引数 (plot, scatter, imshow, tdscatter 等)
 
 | 引数名 | 型 | 説明 |
 | --- | --- | --- |
@@ -158,14 +185,14 @@ sp2.tdscatter(
 | `logx` / `logy` | bool | 軸を対数スケールにする |
 | `nox` / `noy` | bool | 軸の目盛りラベルのみを非表示にする |
 | `zoom` | str | 指定したデータに合わせて枠を自動拡大する ('x', 'y', 'xy') |
-| `marker` / `size` | - | [scatter] マーカー形状とサイズ |
-| `linestyle` / `linewidth` | - | [plot] 線の種類と太さ |
+| `marker` / `size` | - | [scatter等] マーカー形状とサイズ |
+| `linestyle` / `linewidth` | - | [plot等] 線の種類と太さ |
 
 ---
 
 ## 謝辞 (Acknowledgments)
-This code was developed with the assistance of an LLM.
+The core functionalities and documentation of this library were developed with the assistance of an AI language model (Google Gemini).
 
 ---
 
-Copyright (c) 2026 time-noodles. All rights reserved.
+Copyright (c) 2026 Your Name. All rights reserved.
