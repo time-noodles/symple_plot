@@ -144,7 +144,7 @@ sp2.tdscatter(
 ```
 
 **▼ 出力例:**
-![多項式回帰](images/example4_regression.png)
+![Imshowと3D](images/example5_3d.png)
 
 ---
 
