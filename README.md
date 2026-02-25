@@ -163,4 +163,9 @@ sp2.tdscatter(
 
 ---
 
-Copyright (c) 2026 Your Name. All rights reserved.
+## 謝辞 (Acknowledgments)
+This code was developed with the assistance of an LLM.
+
+---
+
+Copyright (c) 2026 time-noodles. All rights reserved.
