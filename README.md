@@ -1,5 +1,3 @@
-以下のコードブロック右上の「コピー」ボタンを押して、そのまま `README.md` に貼り付けてください。
-
 ```markdown
 # symple_plot
 
@@ -58,13 +56,15 @@ plt.show()
 
 ```
 
+**▼ 出力例:**
+
 ---
 
 ## 🛠 機能リファレンスと実例 (Examples)
 
 ### 1. 指数の自動統一と科学的記数法
 
-大きな桁数のデータをプロットすると、Y軸などが自動的に `$1.5 \times 10^4$` のようにフォーマットされます。
+大きな桁数のデータをプロットすると、軸全体で指数が統一され、`$0.5 \times 10^4$` のように美しくフォーマットされます。
 
 ```python
 fig, sp = create_symple_plots(1, 1)
@@ -76,9 +76,11 @@ sp.scatter(x, y, alab=["X", "Large Value"])
 
 ```
 
+**▼ 出力例:**
+
 ### 2. Inset Zoom（自動探索・拡大小窓）
 
-特定の部分を強調したい場合、`add_inset_zoom` メソッドを使います。
+特定の部分を強調したい場合、`add_inset_zoom` メソッドを使います。範囲を指定するだけでY方向のスケールは自動計算されます。
 
 ```python
 fig, sp = create_symple_plots(1, 1)
@@ -93,9 +95,11 @@ sp.add_inset_zoom(xlim=[7.2, 7.8], bounds='upper left')
 
 ```
 
+**▼ 出力例:**
+
 ### 3. 多項式回帰 (Regression)
 
-散布図を描画し、そのまま `Regression` を呼ぶことで近似曲線を引けます。
+散布図を描画し、そのまま `Regression` を呼ぶことで近似曲線を引けます。結果はCSVに追記されます。
 
 ```python
 fig, sp = create_symple_plots(1, 1)
@@ -105,32 +109,16 @@ y = 0.5 * x**3 - 2 * x + np.random.normal(0, 5, 30)
 
 sp.scatter(x, y, alab=["X", "Y"])
 
-# 3次関数でフィッティングし、結果をカレントディレクトリのCSVに保存
+# 3次関数でフィッティングし、結果をCSVに保存
 sp.Regression(regr=3, directory='./')
 
 ```
 
-### 4. 対数軸と範囲の強制指定
+**▼ 出力例:**
 
-`logx` や `logy` を `True` にするだけで対数スケールになります。また、`cx`, `cy` で軸の範囲を固定できます。
+### 4. 画像プロット (Imshow) と 3D プロット
 
-```python
-fig, sp = create_symple_plots(1, 1)
-
-x = np.linspace(0.1, 100, 100)
-y = 1 / x**2
-
-sp.plot(
-    x, y, 
-    alab=["Time", "Decay"], 
-    logy=True,          # Y軸を対数スケールに
-    cx=[0, 50],         # X軸の範囲を 0~50 に固定
-    cy=[1e-4, 1e2]      # Y軸の範囲を 10^-4~10^2 に固定
-)
-
-```
-
-### 5. 画像プロット (Imshow) と 3D プロット
+2Dマッピング画像や3D空間のプロットもサポートしています。
 
 ```python
 fig, sp_arr = create_symple_plots(1, 2, figsize=(12, 5))
@@ -156,40 +144,23 @@ sp2.tdscatter(
 
 ```
 
+**▼ 出力例:**
+
 ---
 
 ## ⚙️ パラメータ一覧 (Kwargs Reference)
 
-`plot`, `scatter`, `pre_set`, `imshow`, `tdscatter`, `tdplot` メソッドで共通して使用できる主なキーワード引数(`**kwargs`)です。
+| 引数名 | 型 | 説明 |
+| --- | --- | --- |
+| `alab` | list | 軸ラベルを指定 `[xlabel, ylabel, (zlabel)]` |
+| `lab` | list/str | 凡例のテキスト |
+| `cx` / `cy` | list | 軸の描画範囲を固定 `[min, max]` |
+| `logx` / `logy` | bool | 軸を対数スケールにする |
+| `nox` / `noy` | bool | 軸の目盛りラベルのみを非表示にする |
+| `zoom` | str | 指定したデータに合わせて枠を自動拡大する ('x', 'y', 'xy') |
+| `marker` / `size` | - | [scatter] マーカー形状とサイズ |
+| `linestyle` / `linewidth` | - | [plot] 線の種類と太さ |
 
-| 引数名 | 型 | 説明 | 例 |
-| --- | --- | --- | --- |
-| `alab` | list | 軸ラベルを指定 `[xlabel, ylabel, (zlabel)]` | `alab=["Time (s)", "Voltage (V)"]` |
-| `lab` | list/str | 凡例のテキスト | `lab=["Sample A", "Sample B"]` |
-| `loc` | str | 凡例の位置（デフォルトはグラフの右外側） | `loc='upper left'` |
-| `cx` | list | X軸の描画範囲を固定 `[xmin, xmax]` | `cx=[0, 100]` |
-| `cy` | list | Y軸の描画範囲を固定 `[ymin, ymax]` | `cy=[-1.5, 1.5]` |
-| `logx` | bool | X軸を対数スケールにする | `logx=True` |
-| `logy` | bool | Y軸を対数スケールにする | `logy=True` |
-| `nox` | bool | X軸の**数字（目盛りラベル）のみ**を非表示にする | `nox=True` |
-| `noy` | bool | Y軸の**数字（目盛りラベル）のみ**を非表示にする | `noy=True` |
-| `zoom` | str | プロットしたデータに合わせて枠を自動拡大する | `zoom='xy'` |
-| `margin` | float | データ端から軸枠までの余白割合（デフォルト: 0.05） | `margin=0.1` |
-| `marker` | list/str | [scatter専用] マーカーの形状 | `marker=['o', '^', 's']` |
-| `size` | int | [scatter専用] マーカーのサイズ | `size=50` |
-| `linestyle` | list/str | [plot専用] 線の種類 | `linestyle=['-', '--']` |
-| `linewidth` | float | [plot専用] 線の太さ | `linewidth=2.5` |
+---
 
-### 🎨 カラーマップの設定 (`sp.col`)
-
-インスタンスの `col` プロパティを変更することで、配色を一括で変更できます。データ数に応じて自動で色が分割されます。
-
-```python
-sp.col = 'grads'  # 気象分野特有のレインボーカラー（逆順）
-sp.col = 'turbo'  # 視認性の高いGoogle開発のレインボーカラー（デフォルト）
-sp.col = 'plasma' # 明るい暖色系のカラーマップ
-sp.col = 'cool'   # シアン〜マゼンタの寒色系
-sp.col = 'mode1'  # Matplotlibのデフォルトカラーサイクル
-sp.col = ['red', 'blue'] # 手動でリスト指定も可能
-
-```
+Copyright (c) 2026 Your Name. All rights reserved.
