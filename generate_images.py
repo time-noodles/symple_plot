@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # ご自身のライブラリをインポート
-from symple_plot import create_symple_plots, symple_plot
+from symple_plot import create_symple_plots, symple_plot, set_style
 
 def main():
     # 画像保存用のフォルダを作成
@@ -51,9 +51,10 @@ def main():
     y3 = np.sin(x3) + 5 * np.exp(-((x3 - 7.5)**2) / 0.01)
 
     sp3.plot(x3, y3, alab=["X", "Intensity"], lab="Signal with sharp peak")
-    # 拡大図の追加
-    sp3.add_inset_zoom(xlim=[7.2, 7.8], bounds='upper left')
-    sp3.ax.set_title("Inset Zoom", fontsize=14)
+    
+    # 🌟 新機能の反映: boundsを指定せず、'auto' で最適な位置に自動配置させます
+    sp3.add_inset_zoom(xlim=[7.2, 7.8])
+    sp3.ax.set_title("Inset Zoom (Auto Bounds)", fontsize=14)
     
     fig3.savefig("images/example3_zoom.png", dpi=300, bbox_inches='tight', facecolor='white')
     plt.close(fig3)
@@ -105,6 +106,23 @@ def main():
     fig5.savefig("images/example5_3d.png", dpi=300, bbox_inches='tight', facecolor='white')
     plt.close(fig5)
     print(" - example5_3d.png を作成しました")
+
+    # ==========================================
+    # 🌟 6. 論文・プレゼン用ユーティリティ (example6_utils.png) 🌟
+    # ==========================================
+    # style='slide' と auto_label=True を引数で渡すだけ！
+    fig6, sp_arr6 = create_symple_plots(1, 2, figsize=(10, 4), style='slide', auto_label=True)
+
+    x6 = np.linspace(0, 5, 20)
+    sp_arr6[0].plot(x6, np.exp(x6), alab=["Time", "Growth"], lab="Exponential")
+    sp_arr6[1].scatter(x6, x6**2, alab=["Time", "Value"], size=80, marker='s', lab="Quadratic")
+
+    fig6.savefig("images/example6_utils.png", dpi=300, bbox_inches='tight', facecolor='white')
+    plt.close(fig6)
+    print(" - example6_utils.png を作成しました")
+    
+    # 次の描画に影響が出ないよう、スタイルをデフォルトに戻す
+    set_style('default')
 
     print("すべての画像生成が完了しました！ 'images' フォルダを確認してください。")
 

@@ -1,11 +1,42 @@
 import numpy as np
 import os
+import string
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.ticker import Formatter
 from matplotlib.colors import LinearSegmentedColormap
 from sklearn.metrics import r2_score
 import mpl_toolkits.axes_grid1
+
+# ==========================================
+# 🌟 論文・スライド用スタイル一括設定機能 🌟
+# ==========================================
+def set_style(mode='default'):
+    """
+    描画スタイルを一括設定します。
+    mode='paper': 論文用 (serifフォント, 細めの線)
+    mode='slide': プレゼン用 (sans-serifフォント, 太めの線, 大きな文字)
+    mode='default': Matplotlibの初期状態に戻す
+    """
+    if mode == 'paper':
+        plt.rcParams.update({
+            'font.family': 'serif',
+            'font.serif': ['Times New Roman', 'DejaVu Serif'],
+            'mathtext.fontset': 'stix',
+            'axes.linewidth': 1.0,
+            'lines.linewidth': 1.5,
+            'font.size': 14,
+        })
+    elif mode == 'slide':
+        plt.rcParams.update({
+            'font.family': 'sans-serif',
+            'font.sans-serif': ['Arial', 'DejaVu Sans'],
+            'axes.linewidth': 2.0,
+            'lines.linewidth': 2.5,
+            'font.size': 18,
+        })
+    elif mode == 'default':
+        plt.rcdefaults()
 
 # ==========================================
 # 0. GrADSカラーマップ生成
@@ -103,12 +134,38 @@ def alpha_calc(N, num):
     N -= 1
     return 1 if N == 0 else (num / N * 0.75 + 0.25)
 
-def create_symple_plots(nrows=1, ncols=1, figsize=None, **kwargs):
+# 🌟 自動化対応版 create_symple_plots 🌟
+def create_symple_plots(nrows=1, ncols=1, figsize=None, style=None, auto_label=False, **kwargs):
+    """
+    グラフ枠を生成します。
+    style: 'paper', 'slide', 'default' を指定するとスタイルが一括適用されます。
+    auto_label: Trueにすると、各パネルの左上に (a), (b)... と自動でラベルを振ります。
+    """
+    if style:
+        set_style(style)
+
     if figsize is None: figsize = (6 * ncols, 5 * nrows)
     fig, axes = plt.subplots(nrows, ncols, figsize=figsize, **kwargs)
-    if nrows == 1 and ncols == 1: return fig, symple_plot(axes)
-    if axes.ndim == 1: return fig, np.array([symple_plot(ax) for ax in axes])
-    return fig, np.array([[symple_plot(ax) for ax in row] for row in axes])
+    
+    # グラフオブジェクトの生成
+    if nrows == 1 and ncols == 1:
+        ret_arr = symple_plot(axes)
+        flat_sps = [ret_arr]
+    elif axes.ndim == 1:
+        ret_arr = np.array([symple_plot(ax) for ax in axes])
+        flat_sps = ret_arr.flatten()
+    else:
+        ret_arr = np.array([[symple_plot(ax) for ax in row] for row in axes])
+        flat_sps = ret_arr.flatten()
+
+    # 🌟 パネルラベルの全自動付与 🌟
+    if auto_label:
+        alphabet = string.ascii_lowercase # a, b, c, d...
+        for i, sp in enumerate(flat_sps):
+            if i < len(alphabet):
+                sp.add_panel_label(f"({alphabet[i]})")
+
+    return fig, ret_arr
 
 # ==========================================
 # 3. メインクラス: symple_plot
@@ -374,6 +431,21 @@ class symple_plot:
         return self.ax, self.im
 
     # ==========================================
+    # 🌟 パネルラベル自動付与 (a), (b) 🌟
+    # ==========================================
+    def add_panel_label(self, text, x=-0.15, y=1.05, fontsize=None, weight='bold'):
+        """
+        論文用のパネルラベル (a), (b) などを自動配置します。
+        """
+        if fontsize is None:
+            fontsize = self.axilab + 2
+            
+        self.ax.text(x, y, text, transform=self.ax.transAxes, 
+                     fontsize=fontsize, fontweight=weight, 
+                     va='bottom', ha='right')
+        return self.ax
+
+    # ==========================================
     # 🌟 INSET ZOOM (自動探索拡大図) 🌟
     # ==========================================
     def add_inset_zoom(self, xlim=None, ylim=None, bounds='auto', margin=0.05, draw_lines=True):
@@ -436,7 +508,6 @@ class symple_plot:
         elif xlim is None and ylim is None:
             return None 
 
-        # 🌟 親グラフの軸に衝突しないよう、余白を広げた安全な配置座標 🌟
         loc_map = {
             'upper left':  [0.15, 0.60, 0.30, 0.30],
             'upper right': [0.55, 0.60, 0.30, 0.30],
@@ -516,7 +587,6 @@ class symple_plot:
         if not is_logx: axins.xaxis.set_major_formatter(AutoSmartFormatter())
         if not is_logy: axins.yaxis.set_major_formatter(AutoSmartFormatter())
         
-        # 拡大図がメインの邪魔をしないよう文字サイズをさらに小さく調整
         axins.tick_params(labelsize=self.axinum - 9)
 
         if draw_lines:
