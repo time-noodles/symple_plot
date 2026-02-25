@@ -1,17 +1,11 @@
 import numpy as np
 import os
-import glob
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.ticker import Formatter
 from matplotlib.colors import LinearSegmentedColormap
 from sklearn.metrics import r2_score
 import mpl_toolkits.axes_grid1
-
-try:
-    import my_module_trix
-except ImportError:
-    pass
 
 # ==========================================
 # 0. GrADSカラーマップ生成
@@ -173,6 +167,25 @@ class symple_plot:
         new_xmin, new_xmax = minmax(self.X, margin, is_log=is_logx)
         new_ymin, new_ymax = minmax(self.Y, margin, is_log=is_logy)
 
+        cx = kwargs.get('cx')
+        cy = kwargs.get('cy')
+
+        if cx and not cy:
+            valid_y = []
+            for x_arr, y_arr in zip(self.X, self.Y):
+                vx, vy = valid_xy(x_arr, y_arr)
+                mask = (vx >= cx[0]) & (vx <= cx[1])
+                valid_y.append(vy[mask])
+            new_ymin, new_ymax = minmax(valid_y, margin, is_log=is_logy)
+            
+        if cy and not cx:
+            valid_x = []
+            for x_arr, y_arr in zip(self.X, self.Y):
+                vx, vy = valid_xy(x_arr, y_arr)
+                mask = (vy >= cy[0]) & (vy <= cy[1])
+                valid_x.append(vx[mask])
+            new_xmin, new_xmax = minmax(valid_x, margin, is_log=is_logx)
+
         if self.current_xmin is None:
             self.current_xmin, self.current_xmax = new_xmin, new_xmax
             self.current_ymin, self.current_ymax = new_ymin, new_ymax
@@ -182,8 +195,8 @@ class symple_plot:
             self.current_ymin = min(self.current_ymin, new_ymin)
             self.current_ymax = max(self.current_ymax, new_ymax)
 
-        if cx := kwargs.get('cx'): self.current_xmin, self.current_xmax = cx[0], cx[1]
-        if cy := kwargs.get('cy'): self.current_ymin, self.current_ymax = cy[0], cy[1]
+        if cx: self.current_xmin, self.current_xmax = cx[0], cx[1]
+        if cy: self.current_ymin, self.current_ymax = cy[0], cy[1]
 
         if is_logx: self.ax.set_xscale('log')
         if is_logy: self.ax.set_yscale('log')
@@ -289,51 +302,6 @@ class symple_plot:
         self.ax.figure.tight_layout()
         return self.ax
 
-    # --- 復活したメソッド群 ---
-    def CVplot(self, X, Y, **kwargs):
-        self.setxy(X, Y)
-        self.col_c()
-        self.sca = []
-        for i, (x, y) in enumerate(zip(self.X, self.Y)):
-            peaks = my_module_trix.find_peaks_s(x)[::2]
-            lcyc = [0] + list(peaks)
-            num1 = len(lcyc)
-            for j, c1, c2 in zip(range(num1 - 2), lcyc[:-2], lcyc[1:-1]):
-                self.ax.plot(x[c1:c2+1], y[c1:c2+1], color=self.COL[i], alpha=alpha_calc(num1-1, j))
-            c1, c2 = lcyc[-2], lcyc[-1]
-            p, = self.ax.plot(x[c1:c2+1], y[c1:c2+1], color=self.COL[i])
-            self.sca.append(p)
-        self._apply_common_settings(**kwargs)
-        return self.ax
-
-    def CV3plot(self, X, Y, cyc, **kwargs):
-        self.setxy(X, Y)
-        self.col_c()
-        self.sca = []
-        for i, (x, y) in enumerate(zip(self.X, self.Y)):
-            peaks = my_module_trix.find_peaks_s(x)[::2]
-            lcyc = [0] + list(peaks)
-            c1, c2 = lcyc[cyc], lcyc[cyc+1]
-            p, = self.ax.plot(x[c1:c2+1], y[c1:c2+1], color=self.COL[i])
-            self.sca.append(p)
-        self._apply_common_settings(**kwargs)
-        return self.ax
-
-    def CV3plot_s(self, X, Y, cyc, **kwargs):
-        self.setxy(X, Y)
-        self.col_c()
-        self.sca = []
-        for i, (x, y) in enumerate(zip(self.X, self.Y)):
-            peaks = my_module_trix.find_peaks_s(x)[::2]
-            lcyc = list(peaks)
-            c1, c2 = lcyc[cyc], lcyc[cyc+1]
-            xx = np.append(x[c1:c2+1], x[c1])
-            yy = np.append(y[c1:c2+1], y[c1])
-            p, = self.ax.plot(xx, yy, color=self.COL[i])
-            self.sca.append(p)
-        self._apply_common_settings(**kwargs)
-        return self.ax
-
     def tdscatter(self, X, Y, Z, **kwargs):
         self.setxyz(X, Y, Z)
         self.col_c()
@@ -406,24 +374,14 @@ class symple_plot:
         return self.ax, self.im
 
     # ==========================================
-    # 🌟 新機能: INSET ZOOM (自動探索拡大図) 🌟
+    # 🌟 INSET ZOOM (自動探索拡大図) 🌟
     # ==========================================
-    def add_inset_zoom(self, xlim=None, ylim=None, bounds='upper right', margin=0.05):
+    def add_inset_zoom(self, xlim=None, ylim=None, bounds='auto', margin=0.05, draw_lines=True):
         """
         xlimまたはylimを与えると、プロット済みの全データから該当範囲を自動探索し、
         inset_axes（拡大図）を作成して元のグラフと枠線で結びます。
-        boundsには文字列('upper right'など)か、相対座標リスト[x, y, width, height]を渡せます。
+        draw_lines=Falseにすると、接続線と元グラフの枠線を非表示にできます。
         """
-        if isinstance(bounds, str):
-            loc_map = {
-                'upper right': [0.6, 0.55, 0.35, 0.4],
-                'upper left':  [0.05, 0.55, 0.35, 0.4],
-                'lower right': [0.6, 0.05, 0.35, 0.4],
-                'lower left':  [0.05, 0.05, 0.35, 0.4]
-            }
-            bounds = loc_map.get(bounds, [0.6, 0.55, 0.35, 0.4])
-
-        # 親グラフに描画されている全データを収集
         all_x, all_y = [], []
         for line in self.ax.get_lines():
             all_x.extend(line.get_xdata())
@@ -443,12 +401,10 @@ class symple_plot:
         is_logx = self.ax.get_xscale() == 'log'
         is_logy = self.ax.get_yscale() == 'log'
 
-        # xlimが指定された場合: 範囲内のyの最小・最大を自動探索
         if xlim is not None and ylim is None:
             in_range = (all_x >= xlim[0]) & (all_x <= xlim[1])
             valid_y = all_y[in_range]
             if is_logy: valid_y = valid_y[valid_y > 0]
-            
             if len(valid_y) > 0:
                 y_min, y_max = np.min(valid_y), np.max(valid_y)
                 if is_logy:
@@ -461,12 +417,10 @@ class symple_plot:
             else:
                 ylim = self.ax.get_ylim()
 
-        # ylimが指定された場合: 範囲内のxの最小・最大を自動探索
         elif ylim is not None and xlim is None:
             in_range = (all_y >= ylim[0]) & (all_y <= ylim[1])
             valid_x = all_x[in_range]
             if is_logx: valid_x = valid_x[valid_x > 0]
-            
             if len(valid_x) > 0:
                 x_min, x_max = np.min(valid_x), np.max(valid_x)
                 if is_logx:
@@ -482,10 +436,65 @@ class symple_plot:
         elif xlim is None and ylim is None:
             return None 
 
-        # 拡大図(inset_axes)を作成
+        # 🌟 親グラフの軸に衝突しないよう、余白を広げた安全な配置座標 🌟
+        loc_map = {
+            'upper left':  [0.15, 0.60, 0.30, 0.30],
+            'upper right': [0.55, 0.60, 0.30, 0.30],
+            'lower left':  [0.15, 0.15, 0.30, 0.30],
+            'lower right': [0.55, 0.15, 0.30, 0.30]
+        }
+        
+        if isinstance(bounds, str):
+            if bounds == 'auto':
+                xmin_main, xmax_main = self.ax.get_xlim()
+                ymin_main, ymax_main = self.ax.get_ylim()
+                
+                ax_x = np.zeros_like(all_x)
+                ax_y = np.zeros_like(all_y)
+                
+                if is_logx and xmin_main > 0 and xmax_main > xmin_main:
+                    valid_x = all_x > 0
+                    ax_x[valid_x] = (np.log10(all_x[valid_x]) - np.log10(xmin_main)) / (np.log10(xmax_main) - np.log10(xmin_main))
+                    ax_x[~valid_x] = -1
+                else:
+                    ax_x = (all_x - xmin_main) / (xmax_main - xmin_main) if xmax_main != xmin_main else all_x * 0
+                    
+                if is_logy and ymin_main > 0 and ymax_main > ymin_main:
+                    valid_y = all_y > 0
+                    ax_y[valid_y] = (np.log10(all_y[valid_y]) - np.log10(ymin_main)) / (np.log10(ymax_main) - np.log10(ymin_main))
+                    ax_y[~valid_y] = -1
+                else:
+                    ax_y = (all_y - ymin_main) / (ymax_main - ymin_main) if ymax_main != ymin_main else all_y * 0
+                    
+                in_plot = (ax_x >= 0) & (ax_x <= 1) & (ax_y >= 0) & (ax_y <= 1)
+                ax_x, ax_y = ax_x[in_plot], ax_y[in_plot]
+                
+                best_bound = loc_map['upper left']
+                min_overlap = float('inf')
+                
+                for name, box in loc_map.items():
+                    x0, y0, w, h = box
+                    pad = 0.05
+                    overlap = (ax_x >= x0 - pad) & (ax_x <= x0 + w + pad) & \
+                              (ax_y >= y0 - pad) & (ax_y <= y0 + h + pad)
+                    num_overlap = np.sum(overlap)
+                    
+                    if num_overlap < min_overlap:
+                        min_overlap = num_overlap
+                        best_bound = box
+                    if num_overlap == 0:
+                        best_bound = box
+                        break
+                
+                if min_overlap > len(ax_x) * 0.15 and len(ax_x) > 0:
+                    bounds = [1.05, 0.3, 0.30, 0.30]
+                else:
+                    bounds = best_bound
+            else:
+                bounds = loc_map.get(bounds, loc_map['upper right'])
+
         axins = self.ax.inset_axes(bounds)
 
-        # 親グラフのデータを拡大図に完全コピー
         for line in self.ax.get_lines():
             axins.plot(line.get_xdata(), line.get_ydata(), color=line.get_color(), 
                        linestyle=line.get_linestyle(), linewidth=line.get_linewidth(),
@@ -498,7 +507,6 @@ class symple_plot:
                     axins.scatter(offsets[:,0], offsets[:,1], color=coll.get_facecolors(), 
                                   s=coll.get_sizes(), alpha=coll.get_alpha())
 
-        # スケール・範囲・フォーマット設定
         if is_logx: axins.set_xscale('log')
         if is_logy: axins.set_yscale('log')
         
@@ -507,9 +515,11 @@ class symple_plot:
         
         if not is_logx: axins.xaxis.set_major_formatter(AutoSmartFormatter())
         if not is_logy: axins.yaxis.set_major_formatter(AutoSmartFormatter())
-        axins.tick_params(labelsize=self.axinum - 4) # 拡大図なので少し文字を小さく
+        
+        # 拡大図がメインの邪魔をしないよう文字サイズをさらに小さく調整
+        axins.tick_params(labelsize=self.axinum - 9)
 
-        # 元のグラフと拡大図を線で結ぶ
-        self.ax.indicate_inset_zoom(axins, edgecolor="black", alpha=0.5)
+        if draw_lines:
+            self.ax.indicate_inset_zoom(axins, edgecolor="black", alpha=0.5)
         
         return axins
