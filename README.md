@@ -18,7 +18,7 @@
 GitHubから直接インストールできます。（※Privateリポジトリの場合はアクセストークンが必要です）
 
 ```bash
-pip install git+[https://github.com/Chaim-Weizmann/symple_plot.git](https://github.com/Chaim-Weizmann/symple_plot.git)
+pip install git+[https://github.com/time-noodles/symple_plot.git](https://github.com/time-noodles/symple_plot.git)
 
 ```
 
