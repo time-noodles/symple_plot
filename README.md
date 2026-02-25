@@ -1,4 +1,3 @@
-```markdown
 # symple_plot
 
 `symple_plot` は、Matplotlibをベースにした研究・データ解析用の強力なグラフ描画ラッパーライブラリです。
@@ -19,13 +18,7 @@
 GitHubから直接インストールできます。（※Privateリポジトリの場合はアクセストークンが必要です）
 
 ```bash
-pip install git+[https://github.com/あなたのユーザー名/symple_plot.git](https://github.com/あなたのユーザー名/symple_plot.git)
-
-```
-
-※ `あなたのユーザー名` の部分はご自身のGitHub IDに書き換えてください。
-
----
+pip install git+[https://github.com/Chaim-Weizmann/symple_plot.git](https://github.com/Chaim-Weizmann/symple_plot.git)
 
 ## 🚀 基本的な使い方 (Basic Usage)
 
