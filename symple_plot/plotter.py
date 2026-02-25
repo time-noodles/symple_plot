@@ -289,6 +289,122 @@ class symple_plot:
         self.ax.figure.tight_layout()
         return self.ax
 
+    # --- 復活したメソッド群 ---
+    def CVplot(self, X, Y, **kwargs):
+        self.setxy(X, Y)
+        self.col_c()
+        self.sca = []
+        for i, (x, y) in enumerate(zip(self.X, self.Y)):
+            peaks = my_module_trix.find_peaks_s(x)[::2]
+            lcyc = [0] + list(peaks)
+            num1 = len(lcyc)
+            for j, c1, c2 in zip(range(num1 - 2), lcyc[:-2], lcyc[1:-1]):
+                self.ax.plot(x[c1:c2+1], y[c1:c2+1], color=self.COL[i], alpha=alpha_calc(num1-1, j))
+            c1, c2 = lcyc[-2], lcyc[-1]
+            p, = self.ax.plot(x[c1:c2+1], y[c1:c2+1], color=self.COL[i])
+            self.sca.append(p)
+        self._apply_common_settings(**kwargs)
+        return self.ax
+
+    def CV3plot(self, X, Y, cyc, **kwargs):
+        self.setxy(X, Y)
+        self.col_c()
+        self.sca = []
+        for i, (x, y) in enumerate(zip(self.X, self.Y)):
+            peaks = my_module_trix.find_peaks_s(x)[::2]
+            lcyc = [0] + list(peaks)
+            c1, c2 = lcyc[cyc], lcyc[cyc+1]
+            p, = self.ax.plot(x[c1:c2+1], y[c1:c2+1], color=self.COL[i])
+            self.sca.append(p)
+        self._apply_common_settings(**kwargs)
+        return self.ax
+
+    def CV3plot_s(self, X, Y, cyc, **kwargs):
+        self.setxy(X, Y)
+        self.col_c()
+        self.sca = []
+        for i, (x, y) in enumerate(zip(self.X, self.Y)):
+            peaks = my_module_trix.find_peaks_s(x)[::2]
+            lcyc = list(peaks)
+            c1, c2 = lcyc[cyc], lcyc[cyc+1]
+            xx = np.append(x[c1:c2+1], x[c1])
+            yy = np.append(y[c1:c2+1], y[c1])
+            p, = self.ax.plot(xx, yy, color=self.COL[i])
+            self.sca.append(p)
+        self._apply_common_settings(**kwargs)
+        return self.ax
+
+    def tdscatter(self, X, Y, Z, **kwargs):
+        self.setxyz(X, Y, Z)
+        self.col_c()
+        marker_size = kwargs.get('size', 40)
+        self.sca = []
+        for i, (x, y, z) in enumerate(zip(self.X, self.Y, self.Z)):
+            scat = self.ax.scatter(x, y, z, color=self.COL[i], s=marker_size)
+            self.sca.append(scat)
+        self._apply_common_settings(**kwargs)
+        return self.ax, self.sca
+
+    def tdplot(self, X, Y, Z, **kwargs):
+        self.setxyz(X, Y, Z)
+        self.col_c()
+        self.sca = []
+        for i, (x, y, z) in enumerate(zip(self.X, self.Y, self.Z)):
+            p = self.ax.plot_wireframe(x, y, z, color=self.COL[i])
+            self.sca.append(p)
+        self._apply_common_settings(**kwargs)
+        return self.ax, self.sca
+
+    def imshow(self, X, Y, Z, vmax, **kwargs):
+        Z = np.array(Z)
+        if Z.ndim == 3: Z = Z[0]
+        zx, zy = Z.shape
+        
+        if self.col == 'grads':
+            cmap_obj = get_grads_cmap()
+        elif self.col == 'default':
+            cmap_obj = 'jet'
+        elif isinstance(self.col, str):
+            cmap_obj = self.col
+        else:
+            cmap_obj = 'jet'
+            
+        self.im = self.ax.imshow(Z, vmin=0, vmax=vmax, aspect=zy/zx, cmap=cmap_obj)
+        self.ax.invert_yaxis()
+        
+        if len(X) > 0 and len(Y) > 0:
+            X, Y = np.array(X)[0], np.array(Y)[0]
+            self.ax.set_xlim(-0.5, zy - 0.5)
+            self.ax.set_ylim(-0.5, zx - 0.5)
+            
+            if kwargs.get('logx', False): self.ax.set_xscale('log')
+            else: self.ax.xaxis.set_major_formatter(AutoSmartFormatter())
+            
+            if kwargs.get('logy', False): self.ax.set_yscale('log')
+            else: self.ax.yaxis.set_major_formatter(AutoSmartFormatter())
+        
+        if kwargs.get('nox', False): self.ax.tick_params(labelbottom=False)
+        if kwargs.get('noy', False): self.ax.tick_params(labelleft=False)
+
+        divider = mpl_toolkits.axes_grid1.make_axes_locatable(self.ax)
+        cax = divider.append_axes('right', size='5%', pad='3%')
+        cbar = self.ax.figure.colorbar(self.im, cax=cax)
+        cbar.ax.tick_params(labelsize=self.axinum)
+        
+        if kwargs.get('logz', False): 
+            pass 
+        else:
+            cbar.ax.yaxis.set_major_formatter(AutoSmartFormatter())
+        
+        if alab := kwargs.get('alab'):
+            self.ax.set_xlabel(alab[0], fontsize=self.axilab)
+            self.ax.set_ylabel(alab[1], fontsize=self.axilab)
+            if len(alab) > 2:
+                cbar.set_label(alab[2], fontsize=self.axilab)
+                
+        self.ax.figure.tight_layout()
+        return self.ax, self.im
+
     # ==========================================
     # 🌟 新機能: INSET ZOOM (自動探索拡大図) 🌟
     # ==========================================
