@@ -190,6 +190,38 @@ sp_arr[1].scatter(x, x**3, alab=["Time", "Value"], size=80, marker='s', lab="Qua
 
 ---
 
+### 6. データ整形・ファイル操作ユーティリティ
+
+グラフ描画以外にも、実験データの整理や前処理に役立つ便利な関数群をそのままインポートして使用できます。
+
+```python
+import numpy as np
+from symple_plot import valid_xy, pad_list, straighten_path, del_file
+
+# ==========================================
+# データの整形ツール
+# ==========================================
+# 1. 欠損値 (NaN) を含むデータから有効なペアだけを抽出
+x = np.array([1, 2, np.nan, 4])
+y = np.array([10, np.nan, 30, 40])
+clean_x, clean_y = valid_xy(x, y)
+print("Valid:", clean_x, clean_y) # 出力: [1. 4.] [10. 40.]
+
+# 2. 長さの異なるリストをNaNで埋めて長さを揃える
+data1 = [1, 2, 3]
+data2 = [4, 5, 6, 7, 8]
+padded_data = pad_list([data1, data2])
+
+# ==========================================
+# ファイル操作ツール
+# ==========================================
+# 3. フォルダ内のファイルを「自然順 (1, 2, ..., 10)」でソートして取得
+orted_files = straighten_path('./my_data_folder')
+
+# 4. 使い終わった一時ファイル等のリストを一括削除
+del_file(sorted_files)
+```
+
 ## 謝辞 (Acknowledgments)
 The core functionalities and documentation of this library were developed with the assistance of an AI language model (Google Gemini).
 
