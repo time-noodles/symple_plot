@@ -448,7 +448,7 @@ class symple_plot:
 # ==========================================
     # 🌟 INSET ZOOM (自動探索拡大図 - 拡大率最大化版) 🌟
     # ==========================================
-    def add_inset_zoom(self, xlim=None, ylim=None, bounds='auto', margin=0.02, draw_lines=True):
+    def add_inset_zoom(self, xlim=None, ylim=None, bounds='auto', margin=0.05, draw_lines=True):
         """
         xlimまたはylimを与えると、プロット済みの全データから該当範囲を自動探索し、
         inset_axes（拡大図）を作成して元のグラフと枠線で結びます。
