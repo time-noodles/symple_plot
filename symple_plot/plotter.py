@@ -445,14 +445,13 @@ class symple_plot:
                      va='bottom', ha='right')
         return self.ax
 
-    # ==========================================
-    # 🌟 INSET ZOOM (自動探索拡大図 - 軸衝突回避・最大化版) 🌟
+# ==========================================
+    # 🌟 INSET ZOOM (自動探索拡大図 - 絶妙バランス・最大化版) 🌟
     # ==========================================
     def add_inset_zoom(self, xlim=None, ylim=None, bounds='auto', margin=0.02, draw_lines=True):
         """
         xlimまたはylimを与えると、プロット済みの全データから該当範囲を自動探索し、
         inset_axes（拡大図）を作成して元のグラフと枠線で結びます。
-        拡大率を最大化しつつ、親グラフの軸と目盛りが衝突しないように非対称の余白を取ります。
         """
         all_x, all_y = [], []
         for line in self.ax.get_lines():
@@ -533,15 +532,14 @@ class symple_plot:
                 in_plot = (ax_x >= 0) & (ax_x <= 1) & (ax_y >= 0) & (ax_y <= 1)
                 ax_x, ax_y = ax_x[in_plot], ax_y[in_plot]
                 
-                # 🌟 サイズを徐々に下げながら、データに被らない最大の枠を探索 🌟
-                sizes_to_try = [0.40, 0.35, 0.30, 0.25]
+                # 🌟 サイズを45%に戻しつつ、余白を0.12に設定してギリギリを攻める 🌟
+                sizes_to_try = [0.45, 0.40, 0.35, 0.30]
                 best_bound = None
                 fallback_bound = None
                 min_overlap = float('inf')
                 
-                # 🌟 衝突回避のキモ：目盛りのある左と下は余白を広く、上と右は詰める 🌟
-                pad_left = 0.18
-                pad_bottom = 0.18
+                pad_left = 0.12
+                pad_bottom = 0.12
                 pad_right = 0.05
                 pad_top = 0.05
                 
@@ -575,12 +573,12 @@ class symple_plot:
                     bounds = best_bound
                 else:
                     if min_overlap > len(ax_x) * 0.15 and len(ax_x) > 0:
-                        bounds = [1.05, 0.3, 0.40, 0.40] 
+                        bounds = [1.05, 0.3, 0.45, 0.45] 
                     else:
                         bounds = fallback_bound
             else:
-                size = 0.35
-                pad_left, pad_bottom, pad_right, pad_top = 0.18, 0.18, 0.05, 0.05
+                size = 0.40
+                pad_left, pad_bottom, pad_right, pad_top = 0.12, 0.12, 0.05, 0.05
                 loc_map = {
                     'upper left':  [pad_left, 1 - pad_top - size, size, size],
                     'upper right': [1 - pad_right - size, 1 - pad_top - size, size, size],
@@ -612,7 +610,6 @@ class symple_plot:
         if not is_logx: axins.xaxis.set_major_formatter(AutoSmartFormatter())
         if not is_logy: axins.yaxis.set_major_formatter(AutoSmartFormatter())
         
-        # 拡大図がメインの邪魔をしないよう文字サイズをさらに小さく調整
         axins.tick_params(labelsize=self.axinum - 7)
 
         if draw_lines:
