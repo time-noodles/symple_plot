@@ -445,14 +445,14 @@ class symple_plot:
                      va='bottom', ha='right')
         return self.ax
 
-# ==========================================
-    # 🌟 INSET ZOOM (自動探索拡大図 - 拡大率最大化版) 🌟
     # ==========================================
-    def add_inset_zoom(self, xlim=None, ylim=None, bounds='auto', margin=0.10, draw_lines=True):
+    # 🌟 INSET ZOOM (自動探索拡大図 - 軸衝突回避・最大化版) 🌟
+    # ==========================================
+    def add_inset_zoom(self, xlim=None, ylim=None, bounds='auto', margin=0.02, draw_lines=True):
         """
         xlimまたはylimを与えると、プロット済みの全データから該当範囲を自動探索し、
         inset_axes（拡大図）を作成して元のグラフと枠線で結びます。
-        拡大率を最大化するため、空きスペースに応じて枠のサイズを自動で極大化します。
+        拡大率を最大化しつつ、親グラフの軸と目盛りが衝突しないように非対称の余白を取ります。
         """
         all_x, all_y = [], []
         for line in self.ax.get_lines():
@@ -534,20 +534,23 @@ class symple_plot:
                 ax_x, ax_y = ax_x[in_plot], ax_y[in_plot]
                 
                 # 🌟 サイズを徐々に下げながら、データに被らない最大の枠を探索 🌟
-                sizes_to_try = [0.45, 0.40, 0.35, 0.30, 0.25, 0.20]
+                sizes_to_try = [0.40, 0.35, 0.30, 0.25]
                 best_bound = None
                 fallback_bound = None
                 min_overlap = float('inf')
                 
-                pad_x = 0.05
-                pad_y = 0.08
+                # 🌟 衝突回避のキモ：目盛りのある左と下は余白を広く、上と右は詰める 🌟
+                pad_left = 0.18
+                pad_bottom = 0.18
+                pad_right = 0.05
+                pad_top = 0.05
                 
                 for size in sizes_to_try:
                     loc_map_dynamic = {
-                        'upper left':  [pad_x, 1 - pad_x - size, size, size],
-                        'upper right': [1 - pad_x - size, 1 - pad_x - size, size, size],
-                        'lower left':  [pad_x, pad_y, size, size],
-                        'lower right': [1 - pad_x - size, pad_y, size, size]
+                        'upper left':  [pad_left, 1 - pad_top - size, size, size],
+                        'upper right': [1 - pad_right - size, 1 - pad_top - size, size, size],
+                        'lower left':  [pad_left, pad_bottom, size, size],
+                        'lower right': [1 - pad_right - size, pad_bottom, size, size]
                     }
                     
                     for name, box in loc_map_dynamic.items():
@@ -559,32 +562,30 @@ class symple_plot:
                         
                         if num_overlap == 0:
                             best_bound = box
-                            break # 完全な空きスペースを発見！
+                            break
                             
                         if num_overlap < min_overlap:
                             min_overlap = num_overlap
                             fallback_bound = box
                             
                     if best_bound is not None:
-                        break # 最大サイズが見つかったら探索終了
+                        break
                 
                 if best_bound is not None:
                     bounds = best_bound
                 else:
-                    # 全て被る場合は、データ外に大きく配置するか、一番マシなものを選択
                     if min_overlap > len(ax_x) * 0.15 and len(ax_x) > 0:
-                        bounds = [1.05, 0.3, 0.45, 0.45] 
+                        bounds = [1.05, 0.3, 0.40, 0.40] 
                     else:
                         bounds = fallback_bound
             else:
-                # auto以外が指定された場合は少し大きめの固定枠
                 size = 0.35
-                pad_x, pad_y = 0.05, 0.08
+                pad_left, pad_bottom, pad_right, pad_top = 0.18, 0.18, 0.05, 0.05
                 loc_map = {
-                    'upper left':  [pad_x, 1 - pad_x - size, size, size],
-                    'upper right': [1 - pad_x - size, 1 - pad_x - size, size, size],
-                    'lower left':  [pad_x, pad_y, size, size],
-                    'lower right': [1 - pad_x - size, pad_y, size, size]
+                    'upper left':  [pad_left, 1 - pad_top - size, size, size],
+                    'upper right': [1 - pad_right - size, 1 - pad_top - size, size, size],
+                    'lower left':  [pad_left, pad_bottom, size, size],
+                    'lower right': [1 - pad_right - size, pad_bottom, size, size]
                 }
                 bounds = loc_map.get(bounds, loc_map['upper right'])
 
@@ -611,7 +612,7 @@ class symple_plot:
         if not is_logx: axins.xaxis.set_major_formatter(AutoSmartFormatter())
         if not is_logy: axins.yaxis.set_major_formatter(AutoSmartFormatter())
         
-        # 枠が大きくなったので、文字サイズも少し大きく見やすく調整
+        # 拡大図がメインの邪魔をしないよう文字サイズをさらに小さく調整
         axins.tick_params(labelsize=self.axinum - 7)
 
         if draw_lines:
