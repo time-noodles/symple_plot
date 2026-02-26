@@ -219,7 +219,7 @@ padded_data = pad_list([data1, data2])
 orted_files = straighten_path('./my_data_folder')
 
 # 4. 使い終わった一時ファイル等のリストを一括削除
-del_file(sorted_files)
+del_file('./my_data_folder')
 ```
 
 ## 謝辞 (Acknowledgments)
