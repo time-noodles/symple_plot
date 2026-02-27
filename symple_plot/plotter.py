@@ -234,7 +234,7 @@ class symple_plot:
             
         self.COL = []
         num_data = len(self.X)
-        if self.col in ['default', 'turbo', 'plasma', 'viridis', 'cool']:
+        if self.col in ['default', 'turbo', 'plasma', 'viridis', 'cool','gist_gray']:
             cmap = plt.get_cmap(self.col if self.col != 'default' else 'turbo')
             self.COL = [cmap(0.5)] if num_data == 1 else [cmap(val) for val in np.linspace(0.90, 0.05, num_data)]
         elif self.col == 'grads':
