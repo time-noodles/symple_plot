@@ -87,23 +87,34 @@ class AutoSmartFormatter(Formatter):
         return f"{x:.{decimals}f}"
 
 # ==========================================
-# 2. 補助関数群 (対数スケールマージン対応)
+# 2. 補助関数群 (対数スケールマージン対応・データ整形)
 # ==========================================
 def ensure_2d(data):
     if len(data) == 0: return [[]]
-    # 🌟 pd.Series も配列として正しく認識させる！
-    if not isinstance(data[0], (list, tuple, np.ndarray, pd.Series)): 
-        return [data]
+    if not isinstance(data[0], (list, tuple, np.ndarray, pd.Series)): return [data]
     return data
 
 def pad_list(L):
-    max_len = max([len(i) for i in L])
+    max_len = max([len(i) for i in L]) if len(L) > 0 else 0
     L_padded = [list(i) + [np.nan] * (max_len - len(i)) for i in L]
-    # 🌟 CSVから読み込んだ文字列('5.0'など)も確実に数値としてグラフ化できるよう dtype=float を明記
-    return [i for i in L_padded]
+    res = []
+    for i in L_padded:
+        try:
+            # まず数値変換を試みる
+            res.append(np.array(i, dtype=float))
+        except (ValueError, TypeError):
+            # .values を削除し、np.asarray で安全に NumPy 配列化する
+            res.append(np.asarray(pd.to_numeric(i, errors='coerce'), dtype=float))
+    return res
 
 def minmax(val, margin=0.05, is_log=False):
     v_flat = np.concatenate([np.ravel(v) for v in val]) if len(val) > 0 else np.array([])
+    
+    try:
+        v_flat = np.asarray(v_flat, dtype=float)
+    except (ValueError, TypeError):
+        v_flat = np.asarray(pd.to_numeric(v_flat, errors='coerce'), dtype=float)
+        
     v_flat = v_flat[~np.isnan(v_flat)]
     
     if len(v_flat) == 0:
@@ -124,12 +135,16 @@ def minmax(val, margin=0.05, is_log=False):
         return min0 - dif * margin, max0 + dif * margin
 
 def valid_xy(x, y):
-    """
-    欠損値(NaN)を除外する補助関数。
-    リストやSeriesが渡されてもエラーが起きないよう、強制的にNumPy配列に変換します。
-    """
-    x = np.asarray(x, dtype=float)
-    y = np.asarray(y, dtype=float)
+    try:
+        x = np.asarray(x, dtype=float)
+    except (ValueError, TypeError):
+        x = np.asarray(pd.to_numeric(x, errors='coerce'), dtype=float)
+        
+    try:
+        y = np.asarray(y, dtype=float)
+    except (ValueError, TypeError):
+        y = np.asarray(pd.to_numeric(y, errors='coerce'), dtype=float)
+        
     mask = ~np.isnan(x) & ~np.isnan(y)
     return x[mask], y[mask]
 
@@ -225,7 +240,7 @@ class symple_plot:
         elif self.col == 'grads':
             cmap = get_grads_cmap()
             self.COL = [cmap(0.5)] if num_data == 1 else [cmap(val) for val in np.linspace(1, 0, num_data)]
-        elif self.col == 'mode1':
+        elif self.col == 'model1':
             cl = plt.rcParams['axes.prop_cycle'].by_key()['color']
             self.COL = [cl[i % len(cl)] for i in range(num_data)]
         elif isinstance(self.col, list):
