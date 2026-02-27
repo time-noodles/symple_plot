@@ -164,6 +164,53 @@ sp_arr[1].scatter(x, x**3, alab=["Time", "Value"], size=80, marker='s', lab="Qua
 **▼ 出力例:**
 ![Auto Style & Labels](images/example6_utils.png)
 
+---
+
+### 6. 個別カラー指定と強制ズーム (Custom Color & Auto Zoom)
+
+`col` 引数で特定のプロットだけ色を変更したり、`zoom` 引数を使って「後から追加したデータ」の範囲にグラフ全体をピタッとフォーカスさせることができます。
+
+```python
+fig6, sp_arr7 = create_symple_plots(2, 2)
+
+x_bg = np.linspace(0, 20, 100)
+y_bg = np.sin(x_bg)
+
+# --- 左パネル: `zoom='x'` のテスト（Y軸は維持し、X軸だけ上書きズーム） ---
+sp6_1 = sp_arr7[0]
+sp6_2 = sp_arr7[1]
+sp6_3 = sp_arr7[2]
+sp6_1.plot(x_bg, y_bg, col='gray', lab="Background", linestyle=['--'], alab=["X", "Y"])
+sp6_2.plot(x_bg, y_bg, col='gray', lab="Background", linestyle=['--'], alab=["X", "Y"])
+sp6_3.plot(x_bg, y_bg, col='gray', lab="Background", linestyle=['--'], alab=["X", "Y"])
+
+x_target = np.linspace(5, 10, 50)
+y_target = np.sin(x_target)
+# zoom='x' を指定すると、Y軸の高さ(±1)は保ったまま、X軸だけが 5〜10 にズームされる
+sp6_1.plot(x_target, y_target, col='red', lab="Target (zoom='x')", zoom='x', linewidth=3)
+sp6_2.plot(x_target, y_target, col='red', lab="Target (zoom='y')", zoom='y', linewidth=3)
+sp6_3.plot(x_target, y_target, col='red', lab="Target (zoom='both')", zoom='xy', linewidth=3)
+sp6_1.ax.set_title("zoom='x' (Override X-axis)", fontsize=14)
+sp6_2.ax.set_title("zoom='y' (Override Y-axis)", fontsize=14)
+sp6_3.ax.set_title("zoom='xy' (Override Both)", fontsize=14)
+
+# --- 右パネル: `zoomx` のテスト（プロットと同時に拡大小窓を自動生成） ---
+sp6_4 = sp_arr7[3]
+sp6_4.plot(x_bg, y_bg, col='gray', lab="Full Data", alab=["X", "Y"])
+
+# zoomx=[7.2, 7.8] を引数に入れるだけで、勝手に add_inset_zoom が発動する！
+x_peak = np.linspace(7.2, 7.8, 50)
+y_peak = np.sin(x_peak) + 3 * np.exp(-((x_peak - 7.5)**2) / 0.01)
+sp6_4.plot(x_peak, y_peak, col='green', lab="Sharp Peak", zoomx=[7.2, 7.8])
+sp6_4.ax.set_title("Auto Inset Zoom (zoomx)", fontsize=14)
+
+```
+
+**▼ 出力例:**
+![zoom_col](images/example7_zoom_col.png)
+
+---
+
 ## ⚙️ パラメータ一覧 (Kwargs Reference)
 
 引数の適用先に応じて、2つの表に分けています。
@@ -192,7 +239,7 @@ sp_arr[1].scatter(x, x**3, alab=["Time", "Value"], size=80, marker='s', lab="Qua
 
 ---
 
-### 6. データ整形・ファイル操作ユーティリティ
+### 7. データ整形・ファイル操作ユーティリティ
 
 グラフ描画以外にも、実験データの整理や前処理に役立つ関数群をそのままインポートして使用できます。
 
