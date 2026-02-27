@@ -124,6 +124,12 @@ def minmax(val, margin=0.05, is_log=False):
         return min0 - dif * margin, max0 + dif * margin
 
 def valid_xy(x, y):
+    """
+    欠損値(NaN)を除外する補助関数。
+    リストやSeriesが渡されてもエラーが起きないよう、強制的にNumPy配列に変換します。
+    """
+    x = np.asarray(x, dtype=float)
+    y = np.asarray(y, dtype=float)
     mask = ~np.isnan(x) & ~np.isnan(y)
     return x[mask], y[mask]
 
