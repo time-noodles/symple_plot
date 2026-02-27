@@ -100,7 +100,7 @@ def pad_list(L):
     max_len = max([len(i) for i in L])
     L_padded = [list(i) + [np.nan] * (max_len - len(i)) for i in L]
     # 🌟 CSVから読み込んだ文字列('5.0'など)も確実に数値としてグラフ化できるよう dtype=float を明記
-    return [np.array(i, dtype=float) for i in L_padded]
+    return [i for i in L_padded]
 
 def minmax(val, margin=0.05, is_log=False):
     v_flat = np.concatenate([np.ravel(v) for v in val]) if len(val) > 0 else np.array([])
