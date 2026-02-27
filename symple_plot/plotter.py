@@ -89,15 +89,39 @@ class AutoSmartFormatter(Formatter):
 # ==========================================
 # 2. 補助関数群 (対数スケールマージン対応)
 # ==========================================
+# ==========================================
+# 2. 補助関数群 (対数スケールマージン対応・データ整形)
+# ==========================================
 def ensure_2d(data):
     if len(data) == 0: return [[]]
     if not isinstance(data[0], (list, tuple, np.ndarray)): return [data]
     return data
 
+def flatten_to_1d(seq):
+    """入れ子になった配列やリストを安全に1次元に展開する"""
+    res = []
+    if np.isscalar(seq):
+        return [seq]
+    for item in seq:
+        if isinstance(item, (list, tuple, np.ndarray)):
+            res.extend(flatten_to_1d(item))
+        else:
+            res.append(item)
+    return res
+
 def pad_list(L):
-    max_len = max([len(i) for i in L])
-    L_padded = [list(i) + [np.nan] * (max_len - len(i)) for i in L]
-    return [np.array(i) for i in L_padded]
+    """配列のリストを受け取り、最大の長さに合わせてNaNで埋める"""
+    if not L: return []
+    
+    # NumPyのInhomogeneous shapeエラーを回避するため、要素を確実に1次元に平坦化
+    L_flat = [flatten_to_1d(i) for i in L]
+    max_len = max([len(i) for i in L_flat]) if L_flat else 0
+    
+    # 最大長に合わせて np.nan でパディング
+    L_padded = [i + [np.nan] * (max_len - len(i)) for i in L_flat]
+    
+    # 最終的にきれいなfloat型のNumPy配列として返す
+    return [np.array(i, dtype=float) for i in L_padded]
 
 def minmax(val, margin=0.05, is_log=False):
     v_flat = np.concatenate([np.ravel(v) for v in val]) if len(val) > 0 else np.array([])
