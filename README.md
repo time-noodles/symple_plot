@@ -171,15 +171,15 @@ sp_arr[1].scatter(x, x**3, alab=["Time", "Value"], size=80, marker='s', lab="Qua
 `col` 引数で特定のプロットだけ色を変更したり、`zoom` 引数を使って「後から追加したデータ」の範囲にグラフ全体をピタッとフォーカスさせることができます。
 
 ```python
-fig6, sp_arr7 = create_symple_plots(2, 2)
+fig6, sp_arr6 = create_symple_plots(2, 2)
 
 x_bg = np.linspace(0, 20, 100)
 y_bg = np.sin(x_bg)
 
 # --- 左パネル: `zoom='x'` のテスト（Y軸は維持し、X軸だけ上書きズーム） ---
-sp6_1 = sp_arr7[0]
-sp6_2 = sp_arr7[1]
-sp6_3 = sp_arr7[2]
+sp6_1 = sp_arr6[0]
+sp6_2 = sp_arr6[1]
+sp6_3 = sp_arr6[2]
 sp6_1.plot(x_bg, y_bg, col='gray', lab="Background", linestyle=['--'], alab=["X", "Y"])
 sp6_2.plot(x_bg, y_bg, col='gray', lab="Background", linestyle=['--'], alab=["X", "Y"])
 sp6_3.plot(x_bg, y_bg, col='gray', lab="Background", linestyle=['--'], alab=["X", "Y"])
@@ -195,7 +195,7 @@ sp6_2.ax.set_title("zoom='y' (Override Y-axis)", fontsize=14)
 sp6_3.ax.set_title("zoom='xy' (Override Both)", fontsize=14)
 
 # --- 右パネル: `zoomx` のテスト（プロットと同時に拡大小窓を自動生成） ---
-sp6_4 = sp_arr7[3]
+sp6_4 = sp_arr6[3]
 sp6_4.plot(x_bg, y_bg, col='gray', lab="Full Data", alab=["X", "Y"])
 
 # zoomx=[7.2, 7.8] を引数に入れるだけで、勝手に add_inset_zoom が発動する！
