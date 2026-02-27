@@ -15,10 +15,10 @@
 
 ## 📦 インストール (Installation)
 
-GitHubから直接インストールできます。（※Privateリポジトリの場合はアクセストークンが必要です）
+GitHubから直接インストールできます。
 
 ```bash
-pip install git+[https://github.com/time-noodles/symple_plot.git](https://github.com/time-noodles/symple_plot.git)
+pip install git+https://github.com/time-noodles/symple_plot.git
 
 ```
 
