@@ -140,6 +140,7 @@ def create_symple_plots(nrows=1, ncols=1, figsize=None, style=None, auto_label=F
     グラフ枠を生成します。
     style: 'paper', 'slide', 'default' を指定するとスタイルが一括適用されます。
     auto_label: Trueにすると、各パネルの左上に (a), (b)... と自動でラベルを振ります。
+    ※複数パネルの場合、戻り値のオブジェクト群は常に1次元配列として返されます。
     """
     if style:
         set_style(style)
@@ -149,17 +150,21 @@ def create_symple_plots(nrows=1, ncols=1, figsize=None, style=None, auto_label=F
     
     # グラフオブジェクトの生成
     if nrows == 1 and ncols == 1:
+        # 1x1の場合はそのまま返す（後方互換性）
         ret_arr = symple_plot(axes)
         flat_sps = [ret_arr]
     elif axes.ndim == 1:
+        # 1行複数列、または複数行1列の場合はそのまま1次元配列にする
         ret_arr = np.array([symple_plot(ax) for ax in axes])
-        flat_sps = ret_arr.flatten()
+        flat_sps = ret_arr
     else:
-        ret_arr = np.array([[symple_plot(ax) for ax in row] for row in axes])
-        flat_sps = ret_arr.flatten()
+        # 複数行・複数列の場合も、flatten()を使って1次元配列（[0], [1], [2]...）として返す
+        flat_sps = np.array([symple_plot(ax) for ax in axes.flatten()])
+        ret_arr = flat_sps
 
     # 🌟 パネルラベルの全自動付与 🌟
     if auto_label:
+        import string
         alphabet = string.ascii_lowercase # a, b, c, d...
         for i, sp in enumerate(flat_sps):
             if i < len(alphabet):
@@ -198,7 +203,11 @@ class symple_plot:
         X, Y, Z = ensure_2d(X), ensure_2d(Y), ensure_2d(Z)
         self.X, self.Y, self.Z = pad_list(X), pad_list(Y), pad_list(Z)
 
-    def col_c(self):
+    def col_c(self, **kwargs):
+        # 🌟 ここで kwargs から col を受け取るように一元化！
+        if 'col' in kwargs:
+            self.col = kwargs['col']
+            
         self.COL = []
         num_data = len(self.X)
         if self.col in ['default', 'turbo', 'plasma', 'viridis', 'cool']:
@@ -220,6 +229,11 @@ class symple_plot:
         is_logx = kwargs.get('logx', False)
         is_logy = kwargs.get('logy', False)
         is_logz = kwargs.get('logz', False)
+        
+        # 🌟 zoom引数を確実に文字列として評価し、バグを回避
+        zoom_str = kwargs.get('zoom', '')
+        if zoom_str is None: zoom_str = ''
+        zoom_str = str(zoom_str).lower()
 
         new_xmin, new_xmax = minmax(self.X, margin, is_log=is_logx)
         new_ymin, new_ymax = minmax(self.Y, margin, is_log=is_logy)
@@ -243,12 +257,16 @@ class symple_plot:
                 valid_x.append(vx[mask])
             new_xmin, new_xmax = minmax(valid_x, margin, is_log=is_logx)
 
-        if self.current_xmin is None:
+        # 🌟 zoom機能: 'x' や 'y' が明確に含まれていれば強制上書き
+        if self.current_xmin is None or 'x' in zoom_str:
             self.current_xmin, self.current_xmax = new_xmin, new_xmax
-            self.current_ymin, self.current_ymax = new_ymin, new_ymax
         else:
             self.current_xmin = min(self.current_xmin, new_xmin)
             self.current_xmax = max(self.current_xmax, new_xmax)
+
+        if self.current_ymin is None or 'y' in zoom_str:
+            self.current_ymin, self.current_ymax = new_ymin, new_ymax
+        else:
             self.current_ymin = min(self.current_ymin, new_ymin)
             self.current_ymax = max(self.current_ymax, new_ymax)
 
@@ -264,11 +282,12 @@ class symple_plot:
         is_3d = hasattr(self.ax, 'set_zlim')
         if is_3d and len(self.Z) > 0:
             new_zmin, new_zmax = minmax(self.Z, margin, is_log=is_logz)
-            if self.current_zmin is None:
+            if self.current_zmin is None or 'z' in zoom_str:
                 self.current_zmin, self.current_zmax = new_zmin, new_zmax
             else:
                 self.current_zmin = min(self.current_zmin, new_zmin)
                 self.current_zmax = max(self.current_zmax, new_zmax)
+                
             if cz := kwargs.get('cz'): self.current_zmin, self.current_zmax = cz[0], cz[1]
             if is_logz: self.ax.set_zscale('log')
             self.ax.set_zlim(self.current_zmin, self.current_zmax)
@@ -298,6 +317,12 @@ class symple_plot:
         if not is_3d: self.ax.set_aspect(self.aspect / self.ax.get_data_ratio(), adjustable="box")
         self.ax.figure.tight_layout()
 
+        # 🌟 zoomx, zoomy で自動的に add_inset_zoom を呼び出す機能
+        zoomx = kwargs.get('zoomx')
+        zoomy = kwargs.get('zoomy')
+        if zoomx is not None or zoomy is not None:
+            self.add_inset_zoom(xlim=zoomx, ylim=zoomy)
+
     # ---------------------------------------------------------
     # 各種描画メソッド群
     # ---------------------------------------------------------
@@ -309,7 +334,7 @@ class symple_plot:
 
     def scatter(self, X, Y, **kwargs):
         self.setxy(X, Y)
-        self.col_c()
+        self.col_c(**kwargs)
         marker_size = kwargs.get('size', 40)
         markers = kwargs.get('marker', ['o'])
         if not isinstance(markers, list): markers = [markers]
@@ -323,7 +348,7 @@ class symple_plot:
 
     def plot(self, X, Y, **kwargs):
         self.setxy(X, Y)
-        self.col_c()
+        self.col_c(**kwargs)
         linestyles = kwargs.get('linestyle', ['-'])
         if not isinstance(linestyles, list): linestyles = [linestyles]
         linewidth = kwargs.get('linewidth', 2)
@@ -335,8 +360,8 @@ class symple_plot:
         self._apply_common_settings(**kwargs)
         return self.ax
 
-    def Regression(self, regr, directory='./'):
-        self.col_c()
+    def Regression(self, regr, directory='./', **kwargs):
+        self.col_c(**kwargs)
         x_l = np.linspace(self.current_xmin, self.current_xmax, 1000)
         df_rows = []
         for i, (x, y) in enumerate(zip(self.X, self.Y)):
@@ -361,7 +386,7 @@ class symple_plot:
 
     def tdscatter(self, X, Y, Z, **kwargs):
         self.setxyz(X, Y, Z)
-        self.col_c()
+        self.col_c(**kwargs)
         marker_size = kwargs.get('size', 40)
         self.sca = []
         for i, (x, y, z) in enumerate(zip(self.X, self.Y, self.Z)):
@@ -372,7 +397,7 @@ class symple_plot:
 
     def tdplot(self, X, Y, Z, **kwargs):
         self.setxyz(X, Y, Z)
-        self.col_c()
+        self.col_c(**kwargs)
         self.sca = []
         for i, (x, y, z) in enumerate(zip(self.X, self.Y, self.Z)):
             p = self.ax.plot_wireframe(x, y, z, color=self.COL[i])
@@ -384,7 +409,7 @@ class symple_plot:
         Z = np.array(Z)
         if Z.ndim == 3: Z = Z[0]
         zx, zy = Z.shape
-        
+        if 'col' in kwargs: self.col = kwargs['col']
         if self.col == 'grads':
             cmap_obj = get_grads_cmap()
         elif self.col == 'default':
@@ -446,12 +471,13 @@ class symple_plot:
         return self.ax
 
 # ==========================================
-    # 🌟 INSET ZOOM (自動探索拡大図 - 絶妙バランス・最大化版) 🌟
+    # 🌟 INSET ZOOM (自動探索拡大図 - 絶妙バランス・最大化・全自動対応版) 🌟
     # ==========================================
     def add_inset_zoom(self, xlim=None, ylim=None, bounds='auto', margin=0.02, draw_lines=True):
         """
         xlimまたはylimを与えると、プロット済みの全データから該当範囲を自動探索し、
         inset_axes（拡大図）を作成して元のグラフと枠線で結びます。
+        xlimとylimの両方が与えられた場合（zoomx, zoomyなど）は、そのままその範囲を描画します。
         """
         all_x, all_y = [], []
         for line in self.ax.get_lines():
@@ -504,6 +530,9 @@ class symple_plot:
             else:
                 xlim = self.ax.get_xlim()
         
+        elif xlim is not None and ylim is not None:
+            pass # 両方指定された場合は、そのまま限界値として採用する
+            
         elif xlim is None and ylim is None:
             return None 
 
@@ -532,7 +561,7 @@ class symple_plot:
                 in_plot = (ax_x >= 0) & (ax_x <= 1) & (ax_y >= 0) & (ax_y <= 1)
                 ax_x, ax_y = ax_x[in_plot], ax_y[in_plot]
                 
-                # 🌟 サイズを45%に戻しつつ、余白を0.12に設定してギリギリを攻める 🌟
+                # サイズを45%に保ちつつ、衝突回避のため左と下だけ余白を0.12取る
                 sizes_to_try = [0.45, 0.40, 0.35, 0.30]
                 best_bound = None
                 fallback_bound = None

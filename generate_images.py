@@ -124,6 +124,47 @@ def main():
     # 次の描画に影響が出ないよう、スタイルをデフォルトに戻す
     set_style('default')
 
+    # ==========================================
+    # 🌟 7. 個別カラー指定と強制ズーム (example7_zoom_col.png) 🌟
+    # ==========================================
+    # 1行2列のパネルで2種類のズーム機能をデモ
+    fig7, sp_arr7 = create_symple_plots(2, 2)
+    
+    x_bg = np.linspace(0, 20, 100)
+    y_bg = np.sin(x_bg)
+    
+    # --- 左パネル: `zoom='x'` のテスト（Y軸は維持し、X軸だけ上書きズーム） ---
+    sp7_1 = sp_arr7[0]
+    sp7_2 = sp_arr7[1]
+    sp7_3 = sp_arr7[2]
+    sp7_1.plot(x_bg, y_bg, col='gray', lab="Background", linestyle=['--'], alab=["X", "Y"])
+    sp7_2.plot(x_bg, y_bg, col='gray', lab="Background", linestyle=['--'], alab=["X", "Y"])
+    sp7_3.plot(x_bg, y_bg, col='gray', lab="Background", linestyle=['--'], alab=["X", "Y"])
+    
+    x_target = np.linspace(5, 10, 50)
+    y_target = np.sin(x_target)
+    # zoom='x' を指定すると、Y軸の高さ(±1)は保ったまま、X軸だけが 5〜10 にズームされる
+    sp7_1.plot(x_target, y_target, col='red', lab="Target (zoom='x')", zoom='x', linewidth=3)
+    sp7_2.plot(x_target, y_target, col='red', lab="Target (zoom='y')", zoom='y', linewidth=3)
+    sp7_3.plot(x_target, y_target, col='red', lab="Target (zoom='both')", zoom='xy', linewidth=3)
+    sp7_1.ax.set_title("zoom='x' (Override X-axis)", fontsize=14)
+    sp7_2.ax.set_title("zoom='y' (Override Y-axis)", fontsize=14)
+    sp7_3.ax.set_title("zoom='xy' (Override Both)", fontsize=14)
+
+    # --- 右パネル: `zoomx` のテスト（プロットと同時に拡大小窓を自動生成） ---
+    sp7_4 = sp_arr7[3]
+    sp7_4.plot(x_bg, y_bg, col='gray', lab="Full Data", alab=["X", "Y"])
+    
+    # zoomx=[7.2, 7.8] を引数に入れるだけで、勝手に add_inset_zoom が発動する！
+    x_peak = np.linspace(7.2, 7.8, 50)
+    y_peak = np.sin(x_peak) + 3 * np.exp(-((x_peak - 7.5)**2) / 0.01)
+    sp7_4.plot(x_peak, y_peak, col='green', lab="Sharp Peak", zoomx=[7.2, 7.8])
+    sp7_4.ax.set_title("Auto Inset Zoom (zoomx)", fontsize=14)
+    
+    fig7.savefig("images/example7_zoom_col.png", dpi=300, bbox_inches='tight', facecolor='white')
+    plt.close(fig7)
+    print(" - example7_zoom_col.png を作成しました")
+
     print("すべての画像生成が完了しました！ 'images' フォルダを確認してください。")
 
 if __name__ == "__main__":

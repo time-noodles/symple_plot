@@ -184,7 +184,9 @@ sp_arr[1].scatter(x, x**3, alab=["Time", "Value"], size=80, marker='s', lab="Qua
 | `cx` / `cy` | list | 軸の描画範囲を固定 `[min, max]` |
 | `logx` / `logy` | bool | 軸を対数スケールにする |
 | `nox` / `noy` | bool | 軸の目盛りラベルのみを非表示にする |
-| `zoom` | str | 指定したデータに合わせて枠を自動拡大する ('x', 'y', 'xy') |
+| `zoom` | str | 過去のデータを無視し、今回渡したデータ範囲に枠を強制拡大 ('x', 'y', 'xy') |
+| `zoomx` / `zoomy` | list | 指定した範囲 `[min, max]` の拡大図（Inset Zoom小窓）を自動生成 |
+| `col` | str/list | プロットの色を指定 ('red', 'plasma', 'mode1', ['blue', 'green'] 等) |
 | `marker` / `size` | - | [scatter等] マーカー形状とサイズ |
 | `linestyle` / `linewidth` | - | [plot等] 線の種類と太さ |
 
