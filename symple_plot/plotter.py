@@ -320,7 +320,19 @@ class symple_plot:
         if not is_logx: self.ax.xaxis.set_major_formatter(AutoSmartFormatter())
         if not is_logy: self.ax.yaxis.set_major_formatter(AutoSmartFormatter())
             
-        self.ax.tick_params(axis='both', labelsize=self.axinum, length=self.tlength)
+        # 🌟 論文仕様: 内向き・四方・マイナー目盛りのデフォルト化 🌟
+        if not is_3d:
+            self.ax.minorticks_on() # 補助目盛りをON
+            # 主目盛り (長く、数字あり)
+            self.ax.tick_params(which='major', direction='in', length=self.tlength, 
+                                top=True, bottom=True, left=True, right=True, labelsize=self.axinum)
+            # 補助目盛り (短く、数字なし)
+            self.ax.tick_params(which='minor', direction='in', length=self.tlength * 0.5, 
+                                top=True, bottom=True, left=True, right=True)
+        else:
+            # 3Dグラフは四方囲みができないため、通常設定
+            self.ax.tick_params(axis='both', labelsize=self.axinum, length=self.tlength)
+
         if kwargs.get('nox', False): self.ax.tick_params(labelbottom=False)
         if kwargs.get('noy', False): self.ax.tick_params(labelleft=False)
 
@@ -663,7 +675,12 @@ class symple_plot:
         if not is_logx: axins.xaxis.set_major_formatter(AutoSmartFormatter())
         if not is_logy: axins.yaxis.set_major_formatter(AutoSmartFormatter())
         
-        axins.tick_params(labelsize=self.axinum - 7)
+        # 🌟 小窓も内向き・四方・マイナー目盛りに統一 🌟
+        axins.minorticks_on()
+        axins.tick_params(which='major', direction='in', length=self.tlength * 0.7, 
+                          top=True, bottom=True, left=True, right=True, labelsize=self.axinum - 7)
+        axins.tick_params(which='minor', direction='in', length=self.tlength * 0.35, 
+                          top=True, bottom=True, left=True, right=True)
 
         if draw_lines:
             self.ax.indicate_inset_zoom(axins, edgecolor="black", alpha=0.5)
