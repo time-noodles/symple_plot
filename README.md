@@ -281,8 +281,6 @@ sp2.tdscatter(
 **▼ 出力例:**
 ![Imshowと3D](images/example8_3d.png)
 
----
-
 ### 9. 論文・プレゼン用ユーティリティ (Auto Style & Labels)
 
 論文やスライド作成を加速するため、描画スタイルの一括適用（`style`）と、各パネルへの `(a)`, `(b)` ラベルの自動付与（`auto_label`）をサポートしています。
@@ -301,6 +299,35 @@ sp_arr[1].scatter(x, x**3, alab=["Time", "Value"], size=80, marker='s', lab="Qua
 
 **▼ 出力例:**
 ![Auto Style & Labels](images/example9_utils.png)
+
+### 10. インラインラベル (Inline Labels)
+
+データの右端または左端に直接凡例テキストを配置する「インラインラベル」に対応しています。`loc='inline'` を指定すると、データの間隔が広い（文字が被りにくい）方を自動で判定し、プロットと同じ色でラベルを描画します。
+ラベルが被る場合は、`inline_dy` と `inline_fs` を用いて位置やサイズを微調整できます。
+
+```python
+import numpy as np
+from symple_plot import create_symple_plots
+
+def logistic(x, L, k, x0):
+    return L / (1 + np.exp(-k * (x - x0)))
+
+fig, sp = create_symple_plots(1, 1, figsize=(8, 5))
+x = np.linspace(0, 20, 100)
+y1 = logistic(x, 10, 0.8, 10)
+y2 = logistic(x, 8, 0.5, 12) + 1.0
+
+# loc='inline' でラベルを配置。データ末端に潜り込むように自動調整されます。
+sp.plot([x, x], [y1, y2], 
+        alab=["Time (days)", "Yield (mg)"], 
+        lab=["Strain A (Wild)", "Strain B (Mutant)"], 
+        loc='inline',
+        lab_fs=12,
+        inline_dy=[0.3, -0.3]) # ラベルが近い場合に上下に微調整
+```
+
+**▼ 出力例:**
+![インラインラベル](images/example10_inline.png)
 
 ---
 
@@ -322,6 +349,12 @@ sp_arr[1].scatter(x, x**3, alab=["Time", "Value"], size=80, marker='s', lab="Qua
 | `aspect` | float | グラフのアスペクト比を指定（例: 1.0で正方形、0.5で横長） |
 | `alab` | list | 軸ラベルを指定 `[xlabel, ylabel, (zlabel)]` |
 | `lab` | list/str | 凡例のテキスト |
+| `loc` | str | 凡例の配置。`'inline'` で線の端に直接配置（`'inline_right'`, `'inline_left'` で強制指定可） |
+| `inline_dy` | float/list| [インラインラベル] 各ラベルのY座標のオフセット（例: `[0.1, -0.1]`） |
+| `inline_pad`| float | [インラインラベル] ラベル描画のためにX軸を拡張する割合（デフォルト: 0.05 = 5%）|
+| `axilab` | int | 軸ラベル (xlabel, ylabel) のフォントサイズ |
+| `axinum` | int | 軸の目盛り数値のフォントサイズ |
+| `margin` | float | 自動スケーリング時の余白割合 (デフォルト: 0.05) |
 | `cx` / `cy` | list | 軸の描画範囲を固定 `[min, max]` |
 | `logx` / `logy` | bool | 軸を対数スケールにする |
 | `nox` / `noy` | bool | 軸の目盛りラベルのみを非表示にする |

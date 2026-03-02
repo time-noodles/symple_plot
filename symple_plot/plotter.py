@@ -185,6 +185,9 @@ class symple_plot:
             self.COL = [self.col for _ in range(num_data)]
 
     def _apply_common_settings(self, **kwargs):
+        # 軸ラベル・目盛り数字のフォントサイズを上書き
+        self.axilab = kwargs.get('axilab', self.axilab)
+        self.axinum = kwargs.get('axinum', self.axinum)        
         margin = kwargs.get('margin', 0.05)
         is_logx = kwargs.get('logx', False)
         is_logy = kwargs.get('logy', False)
@@ -261,7 +264,8 @@ class symple_plot:
 
         if not is_logx: self.ax.xaxis.set_major_formatter(AutoSmartFormatter())
         if not is_logy: self.ax.yaxis.set_major_formatter(AutoSmartFormatter())
-            
+        
+        self.ax.tick_params(which='major', labelsize=self.axinum) # axinumを適用
         # 🌟 論文仕様: 内向き・四方・マイナー目盛りのデフォルト化 🌟
         if not is_3d:
             self.ax.minorticks_on() # 補助目盛りをON
@@ -285,12 +289,78 @@ class symple_plot:
 
         if lab := kwargs.get('lab'):
             if not isinstance(lab, list): lab = [lab]
-            for handle, label_text in zip(self.sca, lab):
-                self.all_handles.append(handle)
-                self.all_labels.append(label_text)
             loc = kwargs.get('loc', 'upper left')
-            if len(self.all_handles) > 0:
-                self.ax.legend(self.all_handles, self.all_labels, bbox_to_anchor=(1.01, 1), loc=loc, frameon=False, fontsize=self.axinum)
+            lab_fs = kwargs.get('lab_fs', self.axinum)  # 凡例サイズを統合
+            
+            # --- インラインラベル・モード ---
+            if isinstance(loc, str) and loc.startswith('inline'):
+                align = loc.split('_')[1] if '_' in loc else 'auto'
+                
+                # auto判定 (左右の間隔比較)
+                left_ys, right_ys = [], []
+                for x_arr, y_arr in zip(self.X, self.Y):
+                    vx, vy = valid_xy(x_arr, y_arr)
+                    if len(vx) > 0:
+                        left_ys.append(vy[0]); right_ys.append(vy[-1])
+                    else:
+                        left_ys.append(np.nan); right_ys.append(np.nan)
+                
+                if align == 'auto':
+                    l_val = np.array(left_ys)[~np.isnan(left_ys)]
+                    r_val = np.array(right_ys)[~np.isnan(right_ys)]
+                    def min_dist(arr):
+                        if len(arr) < 2: return 1.0
+                        return np.min(np.diff(np.sort(arr)))
+                    align = 'right' if min_dist(r_val) >= min_dist(l_val) else 'left'
+
+                # 各種オフセット設定
+                inline_dy = kwargs.get('inline_dy', 0)
+                if not isinstance(inline_dy, (list, tuple, np.ndarray)):
+                    inline_dy = [inline_dy] * len(self.X)
+                
+                # パディング調整 (軸と重ならないよう広めに取る)
+                inline_pad = kwargs.get('inline_pad', 0.12) 
+                x_range = self.current_xmax - self.current_xmin
+                # Xのオフセット設定: 末端(vx[-1])から少し内側に潜り込ませる
+                # x_rangeの0.5%程度を内側にオフセット
+                x_in_offset = x_range * 0.005 
+
+                for i, (x_arr, y_arr) in enumerate(zip(self.X, self.Y)):
+                    if i >= len(lab): break
+                    vx, vy = valid_xy(x_arr, y_arr)
+                    if len(vx) == 0: continue
+                    
+                    dy = inline_dy[i % len(inline_dy)]
+                    
+                    if align == 'right':
+                        # xmaxよりも少し小さい値(左側)に配置
+                        x_pos = vx[-1] - x_in_offset
+                        ha = 'right' # 右揃えにすることで、文字の末尾が末端に近づく
+                    else:
+                        # xminよりも少し大きい値(右側)に配置
+                        x_pos = vx[0] + x_in_offset
+                        ha = 'left' # 左揃え
+                        
+                    color = self.COL[i] if i < len(self.COL) else 'black'
+                    
+                    # fontweight='bold' で視認性を確保
+                    self.ax.text(x_pos, vy[-1 if align=='right' else 0] + dy, 
+                                 lab[i], color=color, ha=ha, va='center', 
+                                 fontsize=lab_fs, fontweight='bold')
+                
+                # 軸範囲の拡張は最小限(5%程度)に留め、潜り込みを際立たせる
+                inline_pad = kwargs.get('inline_pad', 0.05)
+                if align == 'right':
+                    self.ax.set_xlim(self.current_xmin, self.current_xmax + x_range * inline_pad)
+                elif align == 'left':
+                    self.ax.set_xlim(self.current_xmin - x_range * inline_pad, self.current_xmax)
+            
+            # --- 通常の凡例モード (locがinlineでない場合のみ実行) ---
+            else:
+                if len(self.sca) > 0:
+                    # 警告回避のため、ハンドルとラベルを明示的に渡す
+                    self.ax.legend(self.sca, lab, bbox_to_anchor=(1.01, 1), 
+                                   loc=loc, frameon=False, fontsize=lab_fs)
 
         # 🌟 アスペクト比の動的変更 (aspect引数対応) 🌟
         if 'aspect' in kwargs:

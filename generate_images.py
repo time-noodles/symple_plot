@@ -1,7 +1,11 @@
+### generate_images.py の完全版（インラインラベル対応版）
+
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from symple_plot import create_symple_plots, set_style, symple_plot
+from symple_plot import create_symple_plots, set_style, symple_plot, del_file
+
+del_file('*.csv')
 
 def main():
     os.makedirs('images', exist_ok=True)
@@ -106,7 +110,7 @@ def main():
     # 3. add_inset_zoom で指定
     sp_arr5[2].plot(x_bg, y_bg, col='gray', alab=["X", "Intensity"])
     sp_arr5[2].plot(x_peak, y_peak, col='green')
-    sp_arr5[2].add_inset_zoom(xlim=[7.2, 7.8], bounds='upper right')
+    sp_arr5[2].add_inset_zoom(xlim=[7.2, 7.8], bounds='upper left')
     sp_arr5[2].ax.set_title("3. add_inset_zoom()")
     
     fig5.savefig("images/example5_zoom.png", dpi=300, bbox_inches='tight')
@@ -154,6 +158,29 @@ def main():
     sp_arr9[1].scatter(np.linspace(0, 5, 20), np.linspace(0, 5, 20)**3, alab=["Time", "Value"], size=80, marker='s', lab="Quadratic")
     fig9.savefig("images/example9_utils.png", dpi=300, bbox_inches='tight')
     plt.close(fig9)
+    
+    # 10. インラインラベル (Inline Labels) - Logistic Curve版
+    fig10, sp10 = create_symple_plots(1, 1, figsize=(8, 5))
+    
+    def logistic(x, L, k, x0):
+        return L / (1 + np.exp(-k * (x - x0)))
+        
+    x10 = np.linspace(0, 20, 100)
+    y1 = logistic(x10, 10, 0.8, 10)
+    y2 = logistic(x10, 8, 0.5, 12) + 1.5 # Y軸方向に少しオフセット
+    
+    sp10.plot([x10, x10], [y1, y2], 
+              alab=["Time (days)", "Growth Yield"], 
+              lab=["Sample A", "Sample B"], 
+              loc='inline',
+              lab_fs=13,
+              inline_dy=[0.4, -0.4], 
+              inline_pad=0.08) # 潜り込みを活かしつつ余白を調整
+    
+    sp10.ax.set_title("Inline Labels with Logistic Curves")
+    fig10.savefig("images/example10_inline.png", dpi=300, bbox_inches='tight')
+    plt.close(fig10)
+    
     set_style('default')
 
     print("\n✅ All example images have been successfully generated!")
