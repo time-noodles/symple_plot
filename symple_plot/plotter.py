@@ -8,6 +8,9 @@ from matplotlib.colors import LinearSegmentedColormap
 from sklearn.metrics import r2_score
 import mpl_toolkits.axes_grid1
 
+from .data_utils import valid_xy, pad_list, minmax, ensure_2d
+from .fit_utils import auto_curve_fit, reg_n
+
 # ==========================================
 # 🌟 論文・スライド用スタイル一括設定機能 🌟
 # ==========================================
@@ -39,7 +42,7 @@ def set_style(mode='default'):
         plt.rcdefaults()
 
 # ==========================================
-# 0. GrADSカラーマップ生成
+# 1. GrADSカラーマップ生成
 # ==========================================
 def get_grads_cmap():
     colors = np.array([
@@ -53,7 +56,7 @@ def get_grads_cmap():
     return LinearSegmentedColormap.from_list("grads_cmap", colors)
 
 # ==========================================
-# 1. 軸フォーマッタ (指数統一・科学的記数法)
+# 2. 軸フォーマッタ (指数統一・科学的記数法)
 # ==========================================
 class AutoSmartFormatter(Formatter):
     def __call__(self, x, pos=None):
@@ -85,74 +88,6 @@ class AutoSmartFormatter(Formatter):
             return rf"${mantissa:.{m_dec}f} \times 10^{{{global_exp}}}$"
                 
         return f"{x:.{decimals}f}"
-
-# ==========================================
-# 2. 補助関数群 (対数スケールマージン対応・データ整形)
-# ==========================================
-def ensure_2d(data):
-    if len(data) == 0: return [[]]
-    if not isinstance(data[0], (list, tuple, np.ndarray, pd.Series)): return [data]
-    return data
-
-def pad_list(L):
-    max_len = max([len(i) for i in L]) if len(L) > 0 else 0
-    L_padded = [list(i) + [np.nan] * (max_len - len(i)) for i in L]
-    res = []
-    for i in L_padded:
-        try:
-            # まず数値変換を試みる
-            res.append(np.array(i, dtype=float))
-        except (ValueError, TypeError):
-            # .values を削除し、np.asarray で安全に NumPy 配列化する
-            res.append(np.asarray(pd.to_numeric(i, errors='coerce'), dtype=float))
-    return res
-
-def minmax(val, margin=0.05, is_log=False):
-    v_flat = np.concatenate([np.ravel(v) for v in val]) if len(val) > 0 else np.array([])
-    
-    try:
-        v_flat = np.asarray(v_flat, dtype=float)
-    except (ValueError, TypeError):
-        v_flat = np.asarray(pd.to_numeric(v_flat, errors='coerce'), dtype=float)
-        
-    v_flat = v_flat[~np.isnan(v_flat)]
-    
-    if len(v_flat) == 0:
-        return (0.1, 10) if is_log else (-1, 1)
-
-    if is_log:
-        v_flat = v_flat[v_flat > 0]
-        if len(v_flat) == 0: return 0.1, 10
-        min0, max0 = np.min(v_flat), np.max(v_flat)
-        log_min, log_max = np.log10(min0), np.log10(max0)
-        dif = log_max - log_min
-        if dif == 0: return 10**(log_min - margin), 10**(log_max + margin)
-        return 10**(log_min - dif * margin), 10**(log_max + dif * margin)
-    else:
-        min0, max0 = np.min(v_flat), np.max(v_flat)
-        dif = max0 - min0
-        if dif == 0: return min0 - abs(min0) * margin, max0 + abs(max0) * margin
-        return min0 - dif * margin, max0 + dif * margin
-
-def valid_xy(x, y):
-    try:
-        x = np.asarray(x, dtype=float)
-    except (ValueError, TypeError):
-        x = np.asarray(pd.to_numeric(x, errors='coerce'), dtype=float)
-        
-    try:
-        y = np.asarray(y, dtype=float)
-    except (ValueError, TypeError):
-        y = np.asarray(pd.to_numeric(y, errors='coerce'), dtype=float)
-        
-    mask = ~np.isnan(x) & ~np.isnan(y)
-    return x[mask], y[mask]
-
-def reg_n(reg, x):
-    y = np.zeros_like(x)
-    for num, i in enumerate(range(len(reg)-1, -1, -1)):
-        y = y + reg[num] * x**i
-    return y
 
 def alpha_calc(N, num):
     N -= 1
@@ -350,7 +285,41 @@ class symple_plot:
             if len(self.all_handles) > 0:
                 self.ax.legend(self.all_handles, self.all_labels, bbox_to_anchor=(1.01, 1), loc=loc, frameon=False, fontsize=self.axinum)
 
-        if not is_3d: self.ax.set_aspect(self.aspect / self.ax.get_data_ratio(), adjustable="box")
+        # 🌟 アスペクト比の動的変更 (aspect引数対応) 🌟
+        if 'aspect' in kwargs:
+            self.aspect = kwargs['aspect']
+            
+        if not is_3d:
+            if isinstance(self.aspect, str): 
+                # 'equal' や 'auto' などの文字列が渡された場合
+                self.ax.set_aspect(self.aspect)
+            else:
+                # 数値が渡された場合は、データ範囲との比率を計算して枠の縦横比を固定
+                self.ax.set_aspect(self.aspect / self.ax.get_data_ratio(), adjustable="box")
+                
+        # ==========================================
+        # 🌟 垂直線 (vx) と 水平線 (hy) の描画 🌟
+        # ==========================================
+        if 'vx' in kwargs:
+            vx_list = kwargs['vx'] if isinstance(kwargs['vx'], (list, tuple, np.ndarray)) else [kwargs['vx']]
+            vcol = kwargs.get('vcol', 'gray')
+            vstyle = kwargs.get('vstyle', '--')
+            vwidth = kwargs.get('vwidth', 1.0)
+            for v in vx_list:
+                self.ax.axvline(x=v, color=vcol, linestyle=vstyle, linewidth=vwidth, zorder=0)
+
+        if 'hy' in kwargs:
+            hy_list = kwargs['hy'] if isinstance(kwargs['hy'], (list, tuple, np.ndarray)) else [kwargs['hy']]
+            hcol = kwargs.get('hcol', 'gray')
+            hstyle = kwargs.get('hstyle', '--')
+            hwidth = kwargs.get('hwidth', 1.0)
+            for h in hy_list:
+                self.ax.axhline(y=h, color=hcol, linestyle=hstyle, linewidth=hwidth, zorder=0)
+
+        self.ax.figure.tight_layout()
+        
+        # (後略... zoomx, zoomyの処理)
+
         self.ax.figure.tight_layout()
 
         # 🌟 zoomx, zoomy で自動的に add_inset_zoom を呼び出す機能
@@ -400,23 +369,51 @@ class symple_plot:
         self.col_c(**kwargs)
         x_l = np.linspace(self.current_xmin, self.current_xmax, 1000)
         df_rows = []
+        
+        p0 = kwargs.get('p0', None)
+        bounds = kwargs.get('bounds', (-np.inf, np.inf))
+        auto_p0 = kwargs.get('auto_p0', False)
+        n_trials = kwargs.get('n_trials', 100) # 🌟 Optuna 用の反復回数
+
         for i, (x, y) in enumerate(zip(self.X, self.Y)):
-            vx, vy = valid_xy(x, y)
-            if len(vx) <= regr: continue
-            fit, cov = np.polyfit(vx, vy, regr, cov=True)
-            err = [cov[j][j]**0.5 * 2 for j in range(regr+1)]
-            y_pred = reg_n(fit, vx)
-            r2 = r2_score(vy, y_pred)
-            df_rows.append([f"Data_{i}_Coef"] + fit.tolist())
-            df_rows.append([f"Data_{i}_Error"] + err)
-            df_rows.append([f"Data_{i}_R2"] + [r2] + [np.nan] * regr)
-            self.ax.plot(x_l, reg_n(fit, x_l), color=self.COL[i], linestyle='--')
+            vx_, vy_ = valid_xy(x, y)
+            if len(vx_) < 2: continue
             
+            # 関数が渡された場合（外出しした auto_curve_fit を使用）
+            if callable(regr):
+                try:
+                    popt, pcov = auto_curve_fit(regr, vx_, vy_, p0=p0, bounds=bounds, 
+                                                auto_p0=auto_p0, n_trials=n_trials)
+                    err = np.sqrt(np.diag(pcov)) * 2 if not np.isinf(pcov).all() else [np.nan] * len(popt)
+                    y_pred = regr(vx_, *popt)
+                    r2 = r2_score(vy_, y_pred)
+                    
+                    df_rows.append([f"Data_{i}_Params"] + popt.tolist())
+                    df_rows.append([f"Data_{i}_Error"] + err.tolist())
+                    df_rows.append([f"Data_{i}_R2"] + [r2])
+                    self.ax.plot(x_l, regr(x_l, *popt), color=self.COL[i], linestyle='--')
+                except Exception as e:
+                    print(f"Curve fit failed for Data_{i}: {e}")
+                    
+            # 整数（多項式）の場合
+            elif isinstance(regr, int):
+                if len(vx_) <= regr: continue
+                fit, cov = np.polyfit(vx_, vy_, regr, cov=True)
+                err = [cov[j][j]**0.5 * 2 for j in range(regr+1)]
+                y_pred = reg_n(fit, vx_)
+                r2 = r2_score(vy_, y_pred)
+                
+                df_rows.append([f"Data_{i}_Coef"] + fit.tolist())
+                df_rows.append([f"Data_{i}_Error"] + err)
+                df_rows.append([f"Data_{i}_R2"] + [r2] + [np.nan] * regr)
+                self.ax.plot(x_l, reg_n(fit, x_l), color=self.COL[i], linestyle='--')
+                
         if df_rows:
             df = pd.DataFrame(df_rows)
             save_path = os.path.join(directory, 'regression_results.csv')
             df.to_csv(save_path, mode='a' if os.path.exists(save_path) else 'w', header=False, index=False)
             print(f"Regression data appended to {save_path}")
+            
         self.ax.figure.tight_layout()
         return self.ax
 

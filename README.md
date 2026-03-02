@@ -8,8 +8,8 @@
 * **Auto Smart Formatter**: 軸のスケールを自動解析し、`5.0 × 10^4` のような美しい科学的記数法に自動フォーマットします。複数のデータ間で指数も統一されます。
 * **Inset Zoom (自動拡大図)**: 範囲 (`xlim` または `ylim`) を指定するだけで、データの該当部分を自動探索し、小窓（Inset）として拡大描画します。
 * **GrADS & Perceptually Uniform Colormaps**: 気象学で人気のGrADSカラーマップを標準搭載。他にも `turbo`, `plasma` などの知覚的均等カラーマップを視認性の高い範囲に絞って適用します。
-* **多項式回帰 (Regression)**: 任意の次数の回帰曲線を自動で引き、係数やR2スコアを1つのCSVファイル (`regression_results.csv`) に追記保存します。
-* **ワンライナー設定**: 軸ラベル、凡例、対数軸、範囲、目盛りの非表示などを1行の引数で完結させます。
+* **高度な回帰分析 (Optuna搭載)**: 任意の次数の多項式回帰や、ユーザー定義関数による非線形フィッティングを自動実行します。`optuna` を用いたベイズ最適化による初期値(`p0`)の自動大域探索にも対応しています。
+* **ワンライナー設定**: 軸ラベル、凡例、対数軸、範囲、垂直/水平の補助線(`vx`, `hy`)、アスペクト比などを1行の引数で完結させます。
 
 ---
 
@@ -19,7 +19,6 @@ GitHubから直接インストールできます。
 
 ```bash
 pip install git+https://github.com/time-noodles/symple_plot.git
-
 ```
 
 ## 🚀 基本的な使い方 (Basic Usage)
@@ -48,11 +47,10 @@ sp.plot(
 )
 
 plt.show()
-
 ```
 
 **▼ 出力例:**
-![基本プロット](images/example1_basic.png)
+![基本プロット](images/example0_basic.png)
 
 ---
 
@@ -69,11 +67,10 @@ x = np.linspace(1, 5, 5)
 y = np.array([5000, 10000, 15000, 20000, 25000])
 
 sp.scatter(x, y, alab=["X", "Large Value"])
-
 ```
 
 **▼ 出力例:**
-![指数統一](images/example2_exponent.png)
+![指数統一](images/example1_exponent.png)
 
 ### 2. Inset Zoom（自動探索・拡大小窓）
 
@@ -89,31 +86,47 @@ sp.plot(x, y, alab=["X", "Intensity"])
 
 # x=7.2〜7.8の範囲を指定すると、Yの範囲を自動探索して左上に拡大図を生成
 sp.add_inset_zoom(xlim=[7.2, 7.8], bounds='upper left')
-
 ```
 
 **▼ 出力例:**
-![Inset Zoom](images/example3_zoom.png)
+![Inset Zoom](images/example2_zoom.png)
 
-### 3. 多項式回帰 (Regression)
+### 3. 回帰分析と補助線 (Regression & Guide Lines)
 
-散布図を描画し、そのまま `Regression` を呼ぶことで近似曲線を引けます。結果はCSVに追記されます。
+`Regression` メソッドは、引数に「整数」を渡せば多項式回帰を、「関数オブジェクト」を渡せば非線形フィッティングを実行します。`auto_p0=True` を指定すると、Optunaによるベイズ最適化で最適な初期値を自動探索します。
 
 ```python
-fig, sp = create_symple_plots(1, 1)
+fig, sp_arr = create_symple_plots(1, 2, figsize=(12, 5))
 
-x = np.linspace(-5, 5, 30)
-y = 0.5 * x**3 - 2 * x + np.random.normal(0, 5, 30)
+# --- パネル1: 多項式回帰 (3次関数) ---
+sp1 = sp_arr[0]
+x1 = np.linspace(-5, 5, 30)
+y1 = 0.5 * x1**3 - 2 * x1 + np.random.normal(0, 5, 30)
+sp1.scatter(x1, y1, alab=["X", "Y"], lab="Data")
+sp1.Regression(regr=3) # 3次関数でフィッティング
+sp1.ax.set_title("Polynomial Regression (regr=3)")
 
-sp.scatter(x, y, alab=["X", "Y"])
+# --- パネル2: 任意関数フィッティングと補助線 ---
+sp2 = sp_arr[1]
+x2 = np.linspace(0.1, 5, 50)
+y2 = 2.5 * np.exp(-1.2 * x2) + np.random.normal(0, 0.05, 50)
 
-# 3次関数でフィッティングし、結果をCSVに保存
-sp.Regression(regr=3, directory='./')
+# vx=[1, 3] で垂直な補助線を、hy=0 で水平線を引く
+sp2.scatter(x2, y2, alab=["Time (s)", "Intensity"], lab="Data",
+            vx=[1, 3], vcol='red', vstyle='--', vwidth=1.5,
+            hy=0, hcol='blue', hstyle=':', hwidth=1.0)
 
+# 任意の関数を定義してフィッティング
+def exp_decay(x, a, b):
+    return a * np.exp(-b * x)
+
+# Optunaを使用して初期値を自動探索
+sp2.Regression(regr=exp_decay, auto_p0=True, n_trials=50, bounds=([0, 0], [10, 5]))
+sp2.ax.set_title("Optuna Auto Fit & Guide Lines")
 ```
 
 **▼ 出力例:**
-![多項式回帰](images/example4_regression.png)
+![回帰と補助線](images/example3_regression.png)
 
 ### 4. 画像プロット (Imshow) と 3D プロット
 
@@ -140,11 +153,10 @@ sp2.tdscatter(
     np.sin(z_3d), np.cos(z_3d), z_3d,
     alab=["X", "Y", "Z"]
 )
-
 ```
 
 **▼ 出力例:**
-![Imshowと3D](images/example5_3d.png)
+![Imshowと3D](images/example4_3d.png)
 
 ---
 
@@ -162,7 +174,7 @@ sp_arr[1].scatter(x, x**3, alab=["Time", "Value"], size=80, marker='s', lab="Qua
 ```
 
 **▼ 出力例:**
-![Auto Style & Labels](images/example6_utils.png)
+![Auto Style & Labels](images/example5_utils.png)
 
 ---
 
@@ -190,9 +202,9 @@ y_target = np.sin(x_target)
 sp6_1.plot(x_target, y_target, col='red', lab="Target (zoom='x')", zoom='x', linewidth=3)
 sp6_2.plot(x_target, y_target, col='red', lab="Target (zoom='y')", zoom='y', linewidth=3)
 sp6_3.plot(x_target, y_target, col='red', lab="Target (zoom='both')", zoom='xy', linewidth=3)
-sp6_1.ax.set_title("zoom='x' (Override X-axis)", fontsize=14)
-sp6_2.ax.set_title("zoom='y' (Override Y-axis)", fontsize=14)
-sp6_3.ax.set_title("zoom='xy' (Override Both)", fontsize=14)
+sp6_1.ax.set_title("zoom='x'", fontsize=14)
+sp6_2.ax.set_title("zoom='y'", fontsize=14)
+sp6_3.ax.set_title("zoom='xy'", fontsize=14)
 
 # --- 右パネル: `zoomx` のテスト（プロットと同時に拡大小窓を自動生成） ---
 sp6_4 = sp_arr6[3]
@@ -203,11 +215,10 @@ x_peak = np.linspace(7.2, 7.8, 50)
 y_peak = np.sin(x_peak) + 3 * np.exp(-((x_peak - 7.5)**2) / 0.01)
 sp6_4.plot(x_peak, y_peak, col='green', lab="Sharp Peak", zoomx=[7.2, 7.8])
 sp6_4.ax.set_title("Auto Inset Zoom (zoomx)", fontsize=14)
-
 ```
 
 **▼ 出力例:**
-![zoom_col](images/example7_zoom_col.png)
+![Custom Color and Zoom](images/example6_zoom_col.png)
 
 ---
 
@@ -226,50 +237,34 @@ sp6_4.ax.set_title("Auto Inset Zoom (zoomx)", fontsize=14)
 
 | 引数名 | 型 | 説明 |
 | --- | --- | --- |
+| `aspect` | float | グラフのアスペクト比を指定（例: 1.0で正方形、0.5で横長） |
 | `alab` | list | 軸ラベルを指定 `[xlabel, ylabel, (zlabel)]` |
 | `lab` | list/str | 凡例のテキスト |
 | `cx` / `cy` | list | 軸の描画範囲を固定 `[min, max]` |
 | `logx` / `logy` | bool | 軸を対数スケールにする |
 | `nox` / `noy` | bool | 軸の目盛りラベルのみを非表示にする |
-| `zoom` | str | 過去のデータを無視し、今回渡したデータ範囲に枠を強制拡大 ('x', 'y', 'xy') |
-| `zoomx` / `zoomy` | list | 指定した範囲 `[min, max]` の拡大図（Inset Zoom小窓）を自動生成 |
-| `col` | str/list | プロットの色を指定 ('red', 'plasma', 'mode1', ['blue', 'green'] 等) |
+| `zoom` | str | 今回渡したデータ範囲に枠を強制拡大 ('x', 'y', 'xy') |
+| `zoomx` / `zoomy` | list | 指定範囲 `[min, max]` の拡大図（Inset Zoom小窓）を生成 |
+| `col` | str/list | プロットの色を指定 ('red', 'plasma', 'mode1' 等) |
 | `marker` / `size` | - | [scatter等] マーカー形状とサイズ |
 | `linestyle` / `linewidth` | - | [plot等] 線の種類と太さ |
+| `vx` / `hy` | list/float | 垂直線(x) / 水平線(y) を引く座標 |
+| `vcol` / `hcol` | str | 垂直/水平線の色 (デフォルト: 'gray') |
+| `vstyle` / `hstyle` | str | 垂直/水平線のスタイル (デフォルト: '--') |
+| `auto_p0` | bool | [Regression] Trueにすると、Optunaで非線形フィッティングの初期値を自動探索する |
+| `n_trials`| int  | [Regression] `auto_p0=True` の際のOptuna探索回数（デフォルト: 100） |
+| `p0` / `bounds`| - | [Regression] 非線形フィッティングの初期推測値 / 探索範囲 |
 
 ---
 
-### 7. データ整形・ファイル操作ユーティリティ
+## 🧰 その他の便利ツール (Utilities)
 
-グラフ描画以外にも、実験データの整理や前処理に役立つ関数群をそのままインポートして使用できます。
+`symple_plot` には、グラフ描画以外にも実験データの整理やモデリングに役立つ便利な関数群が含まれています。データの前処理、ファイルの自然順ソート、Optunaを単独で呼び出すフィッティング機能などが揃っています。
 
-```python
-import numpy as np
-from symple_plot import valid_xy, pad_list, straighten_path, del_file
+詳細な使い方や実例については、以下のWikiページをご覧ください。
+👉 **[データ前処理・ファイル操作・解析ユーティリティ (Wiki)](https://github.com/time-noodles/wiki/Utilities.md)**
 
-# ==========================================
-# データの整形ツール
-# ==========================================
-# 1. 欠損値 (NaN) を含むデータから有効なペアだけを抽出
-x = np.array([1, 2, np.nan, 4])
-y = np.array([10, np.nan, 30, 40])
-clean_x, clean_y = valid_xy(x, y)
-print("Valid:", clean_x, clean_y) # 出力: [1. 4.] [10. 40.]
-
-# 2. 長さの異なるリストをNaNで埋めて長さを揃える
-data1 = [1, 2, 3]
-data2 = [4, 5, 6, 7, 8]
-padded_data = pad_list([data1, data2])
-
-# ==========================================
-# ファイル操作ツール
-# ==========================================
-# 3. フォルダ内のファイルを「自然順 (1, 2, ..., 10)」でソートして取得
-orted_files = straighten_path('./my_data_folder')
-
-# 4. 使い終わった一時ファイル等のリストを一括削除
-del_file('./my_data_folder')
-```
+---
 
 ## 謝辞 (Acknowledgments)
 The core functionalities and documentation of this library were developed with the assistance of an AI language model (Google Gemini).

@@ -8,6 +8,8 @@ setup(
         "numpy",
         "matplotlib",
         "pandas",
-        "scikit-learn"
+        "scikit-learn",
+        "scipy",
+        "optuna",
     ]
 )
