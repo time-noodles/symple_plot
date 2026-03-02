@@ -159,31 +159,41 @@ def main():
     fig9.savefig("images/example9_utils.png", dpi=300, bbox_inches='tight')
     plt.close(fig9)
     
-    # 10. インラインラベル (Inline Labels) - Logistic Curve版
-    fig10, sp10 = create_symple_plots(1, 1, figsize=(8, 5))
+    # 10. インラインラベル (Inline Labels) - 比較パネル版
     
     def logistic(x, L, k, x0):
-        return L / (1 + np.exp(-k * (x - x0)))
-        
+        return L / (1 + np.exp(-k * (x - x0)))    
+    
+    fig10, sp_arr10 = create_symple_plots(1, 2, figsize=(12, 5))
     x10 = np.linspace(0, 20, 100)
     y1 = logistic(x10, 10, 0.8, 10)
-    y2 = logistic(x10, 8, 0.5, 12) + 1.5 # Y軸方向に少しオフセット
+    y2 = logistic(x10, 8, 0.5, 12) + 1.5
     
-    sp10.plot([x10, x10], [y1, y2], 
-              alab=["Time (days)", "Growth Yield"], 
-              lab=["Sample A", "Sample B"], 
-              loc='inline',
-              lab_fs=13,
-              inline_dy=[0.4, -0.4], 
-              inline_pad=0.08) # 潜り込みを活かしつつ余白を調整
+    # 左: symple_plot Default (Legend)
+    sp_arr10[0].plot([x10, x10], [y1, y2], 
+                     alab=["Time (days)", "Growth Yield"], 
+                     lab=["Sample A", "Sample B"],
+                     col=["magenta", "darkviolet"])
+    sp_arr10[0].ax.set_title("symple_plot Default (Legend)")
+
+    # 右: symple_plot (Inline)
+    # ラベルがデータの末端に潜り込み、一体感のある配置
+    sp_arr10[1].plot([x10, x10], [y1, y2], 
+                     alab=["Time (days)", "Growth Yield"], 
+                     lab=["Sample A", "Sample B"], 
+                     loc='inline',
+                     lab_fs=13,               
+                     inline_dy=[0.4, -0.4],   
+                     inline_pad=0.08,         
+                     col=["magenta", "darkviolet"])
+    sp_arr10[1].ax.set_title("symple_plot (Inline Labels)")
     
-    sp10.ax.set_title("Inline Labels with Logistic Curves")
     fig10.savefig("images/example10_inline.png", dpi=300, bbox_inches='tight')
     plt.close(fig10)
     
     set_style('default')
-
-    print("\n✅ All example images have been successfully generated!")
+    print("\n✅ All example images generated (including Inline Comparison).")
+    
 
 if __name__ == "__main__":
     main()

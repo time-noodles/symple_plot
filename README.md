@@ -312,18 +312,16 @@ from symple_plot import create_symple_plots
 def logistic(x, L, k, x0):
     return L / (1 + np.exp(-k * (x - x0)))
 
-fig, sp = create_symple_plots(1, 1, figsize=(8, 5))
+fig, sp_arr = create_symple_plots(1, 2, figsize=(12, 5))
 x = np.linspace(0, 20, 100)
-y1 = logistic(x, 10, 0.8, 10)
-y2 = logistic(x, 8, 0.5, 12) + 1.0
+y1, y2 = logistic(x, 10, 0.8, 10), logistic(x, 8, 0.5, 12) + 1.5
 
-# loc='inline' でラベルを配置。データ末端に潜り込むように自動調整されます。
-sp.plot([x, x], [y1, y2], 
-        alab=["Time (days)", "Yield (mg)"], 
-        lab=["Strain A (Wild)", "Strain B (Mutant)"], 
-        loc='inline',
-        lab_fs=12,
-        inline_dy=[0.3, -0.3]) # ラベルが近い場合に上下に微調整
+# --- 左: symple_plot Default (Standard Legend) ---
+sp_arr[0].plot([x, x], [y1, y2], alab=["Time", "Yield"], lab=["Strain A", "Strain B"])
+
+# --- 右: symple_plot (Inline Labels) ---
+sp_arr[1].plot([x, x], [y1, y2], alab=["Time", "Yield"], lab=["Strain A", "Strain B"], 
+               loc='inline', lab_fs=12, inline_dy=[0.3, -0.3])
 ```
 
 **▼ 出力例:**
@@ -352,6 +350,7 @@ sp.plot([x, x], [y1, y2],
 | `loc` | str | 凡例の配置。`'inline'` で線の端に直接配置（`'inline_right'`, `'inline_left'` で強制指定可） |
 | `inline_dy` | float/list| [インラインラベル] 各ラベルのY座標のオフセット（例: `[0.1, -0.1]`） |
 | `inline_pad`| float | [インラインラベル] ラベル描画のためにX軸を拡張する割合（デフォルト: 0.05 = 5%）|
+| `lab_fs` | int | 凡例およびインラインラベルのフォントサイズ |
 | `axilab` | int | 軸ラベル (xlabel, ylabel) のフォントサイズ |
 | `axinum` | int | 軸の目盛り数値のフォントサイズ |
 | `margin` | float | 自動スケーリング時の余白割合 (デフォルト: 0.05) |
