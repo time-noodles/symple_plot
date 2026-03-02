@@ -3,13 +3,11 @@ import numpy as np
 import pandas as pd
 
 def ensure_2d(data):
-    """データを安全に2次元のリスト(配列のリスト)に変換する"""
     if len(data) == 0: return [[]]
     if not isinstance(data[0], (list, tuple, np.ndarray, pd.Series)): return [data]
     return data
 
 def pad_list(L):
-    """長さの異なるリストをNaNでパディングして配列化する"""
     max_len = max([len(i) for i in L]) if len(L) > 0 else 0
     L_padded = [list(i) + [np.nan] * (max_len - len(i)) for i in L]
     res = []
@@ -21,7 +19,6 @@ def pad_list(L):
     return res
 
 def minmax(val, margin=0.05, is_log=False):
-    """データ群の最小値と最大値を計算し、マージンを加えた描画範囲を返す"""
     v_flat = np.concatenate([np.ravel(v) for v in val]) if len(val) > 0 else np.array([])
     try:
         v_flat = np.asarray(v_flat, dtype=float)
@@ -29,9 +26,7 @@ def minmax(val, margin=0.05, is_log=False):
         v_flat = np.asarray(pd.to_numeric(v_flat, errors='coerce'), dtype=float)
         
     v_flat = v_flat[~np.isnan(v_flat)]
-    
-    if len(v_flat) == 0:
-        return (0.1, 10) if is_log else (-1, 1)
+    if len(v_flat) == 0: return (0.1, 10) if is_log else (-1, 1)
 
     if is_log:
         v_flat = v_flat[v_flat > 0]
@@ -48,15 +43,25 @@ def minmax(val, margin=0.05, is_log=False):
         return min0 - dif * margin, max0 + dif * margin
 
 def valid_xy(x, y):
-    """欠損値や文字列を安全に除外して数値配列を返す"""
-    try:
-        x = np.asarray(x, dtype=float)
-    except (ValueError, TypeError):
-        x = np.asarray(pd.to_numeric(x, errors='coerce'), dtype=float)
-    try:
-        y = np.asarray(y, dtype=float)
-    except (ValueError, TypeError):
-        y = np.asarray(pd.to_numeric(y, errors='coerce'), dtype=float)
-        
+    try: x = np.asarray(x, dtype=float)
+    except: x = np.asarray(pd.to_numeric(x, errors='coerce'), dtype=float)
+    try: y = np.asarray(y, dtype=float)
+    except: y = np.asarray(pd.to_numeric(y, errors='coerce'), dtype=float)
     mask = ~np.isnan(x) & ~np.isnan(y)
     return x[mask], y[mask]
+
+def get_yrange(x, y, xmin, xmax):
+    """Xの範囲(xmin, xmax)に含まれる、X配列とY配列のペアを返す"""
+    x, y = np.asarray(x, dtype=float), np.asarray(y, dtype=float)
+    mask = ~np.isnan(x) & ~np.isnan(y)
+    x_val, y_val = x[mask], y[mask]
+    mask_x = (x_val >= xmin) & (x_val <= xmax)
+    return x_val[mask_x], y_val[mask_x]
+
+def get_xrange(x, y, ymin, ymax):
+    """Yの範囲(ymin, ymax)に含まれる、X配列とY配列のペアを返す"""
+    x, y = np.asarray(x, dtype=float), np.asarray(y, dtype=float)
+    mask = ~np.isnan(x) & ~np.isnan(y)
+    x_val, y_val = x[mask], y[mask]
+    mask_y = (y_val >= ymin) & (y_val <= ymax)
+    return x_val[mask_y], y_val[mask_y]

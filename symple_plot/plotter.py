@@ -8,7 +8,8 @@ from matplotlib.colors import LinearSegmentedColormap
 from sklearn.metrics import r2_score
 import mpl_toolkits.axes_grid1
 
-from .data_utils import valid_xy, pad_list, minmax, ensure_2d
+# 上部のインポート
+from .data_utils import valid_xy, pad_list, minmax, ensure_2d, get_yrange, get_xrange
 from .fit_utils import auto_curve_fit, reg_n
 
 # ==========================================
@@ -200,21 +201,27 @@ class symple_plot:
         cx = kwargs.get('cx')
         cy = kwargs.get('cy')
 
+        # 🌟 配列を返す仕様に変更した get_yrange に合わせた修正
         if cx and not cy:
-            valid_y = []
+            y_bounds = []
             for x_arr, y_arr in zip(self.X, self.Y):
-                vx, vy = valid_xy(x_arr, y_arr)
-                mask = (vx >= cx[0]) & (vx <= cx[1])
-                valid_y.append(vy[mask])
-            new_ymin, new_ymax = minmax(valid_y, margin, is_log=is_logy)
+                # 返り値は (xの配列, yの配列) なので、yの配列だけ受け取る
+                _, y_fil = get_yrange(x_arr, y_arr, cx[0], cx[1])
+                if len(y_fil) > 0: 
+                    y_bounds.append([np.min(y_fil), np.max(y_fil)])
+            if y_bounds: 
+                new_ymin, new_ymax = minmax(y_bounds, margin, is_log=is_logy)
             
+        # 🌟 配列を返す仕様に変更した get_xrange に合わせた修正
         if cy and not cx:
-            valid_x = []
+            x_bounds = []
             for x_arr, y_arr in zip(self.X, self.Y):
-                vx, vy = valid_xy(x_arr, y_arr)
-                mask = (vy >= cy[0]) & (vy <= cy[1])
-                valid_x.append(vx[mask])
-            new_xmin, new_xmax = minmax(valid_x, margin, is_log=is_logx)
+                # 返り値は (xの配列, yの配列) なので、xの配列だけ受け取る
+                x_fil, _ = get_xrange(x_arr, y_arr, cy[0], cy[1])
+                if len(x_fil) > 0: 
+                    x_bounds.append([np.min(x_fil), np.max(x_fil)])
+            if x_bounds: 
+                new_xmin, new_xmax = minmax(x_bounds, margin, is_log=is_logx)
 
         # 🌟 zoom機能: 'x' や 'y' が明確に含まれていれば強制上書き
         if self.current_xmin is None or 'x' in zoom_str:
@@ -531,14 +538,15 @@ class symple_plot:
         is_logx = self.ax.get_xscale() == 'log'
         is_logy = self.ax.get_yscale() == 'log'
 
+        # 🌟 add_inset_zoom 内の xlim, ylim 計算部分の修正 🌟
+        
         if xlim is not None and ylim is None:
-            in_range = (all_x >= xlim[0]) & (all_x <= xlim[1])
-            valid_y = all_y[in_range]
-            if is_logy: valid_y = valid_y[valid_y > 0]
-            if len(valid_y) > 0:
-                y_min, y_max = np.min(valid_y), np.max(valid_y)
+            # 返り値 (xの配列, yの配列) のうち、yの配列(y_fil)のみを使用
+            _, y_fil = get_yrange(all_x, all_y, xlim[0], xlim[1])
+            if len(y_fil) > 0:
+                y_min, y_max = np.min(y_fil), np.max(y_fil)
                 if is_logy:
-                    log_min, log_max = np.log10(y_min), np.log10(y_max)
+                    log_min, log_max = np.log10(max(y_min, 1e-10)), np.log10(max(y_max, 1e-10))
                     dif = log_max - log_min if log_max != log_min else 1
                     ylim = [10**(log_min - dif*margin), 10**(log_max + dif*margin)]
                 else:
@@ -548,13 +556,12 @@ class symple_plot:
                 ylim = self.ax.get_ylim()
 
         elif ylim is not None and xlim is None:
-            in_range = (all_y >= ylim[0]) & (all_y <= ylim[1])
-            valid_x = all_x[in_range]
-            if is_logx: valid_x = valid_x[valid_x > 0]
-            if len(valid_x) > 0:
-                x_min, x_max = np.min(valid_x), np.max(valid_x)
+            # 返り値 (xの配列, yの配列) のうち、xの配列(x_fil)のみを使用
+            x_fil, _ = get_xrange(all_x, all_y, ylim[0], ylim[1])
+            if len(x_fil) > 0:
+                x_min, x_max = np.min(x_fil), np.max(x_fil)
                 if is_logx:
-                    log_min, log_max = np.log10(x_min), np.log10(x_max)
+                    log_min, log_max = np.log10(max(x_min, 1e-10)), np.log10(max(x_max, 1e-10))
                     dif = log_max - log_min if log_max != log_min else 1
                     xlim = [10**(log_min - dif*margin), 10**(log_max + dif*margin)]
                 else:
@@ -562,12 +569,12 @@ class symple_plot:
                     xlim = [x_min - dif*margin, x_max + dif*margin]
             else:
                 xlim = self.ax.get_xlim()
-        
+                
         elif xlim is not None and ylim is not None:
-            pass # 両方指定された場合は、そのまま限界値として採用する
+            pass # 両方指定された場合は限界値として採用
             
         elif xlim is None and ylim is None:
-            return None 
+            return None
 
         if isinstance(bounds, str):
             if bounds == 'auto':

@@ -18,7 +18,7 @@
 GitHubから直接インストールできます。
 
 ```bash
-pip install git+https://github.com/time-noodles/symple_plot.git
+pip install githttps://github.com/time-noodles/symple_plot.git
 ```
 
 ## 🚀 基本的な使い方 (Basic Usage)
@@ -72,7 +72,43 @@ sp.scatter(x, y, alab=["X", "Large Value"])
 **▼ 出力例:**
 ![指数統一](images/example1_exponent.png)
 
-### 2. Inset Zoom（自動探索・拡大小窓）
+### 2. 軸の描画範囲の固定 (`cx`, `cy`)
+特定の範囲だけに描画を制限したい場合は、`cx` または `cy` に `[min, max]` を渡します。左の図はデフォルト、右の図は範囲を固定した例です。
+
+```python
+fig, sp_arr = create_symple_plots(1, 2, figsize=(12, 4))
+x = np.linspace(0, 10, 100)
+
+sp_arr[0].plot(x, np.sin(x), alab=["X", "Y"])
+sp_arr[1].plot(x, np.sin(x), alab=["X (Limited)", "Y (Limited)"], cx=[2, 8], cy=[-0.8, 0.8])
+```
+![範囲固定](images/example2_range.png)
+
+### 3. 対数スケールへの変更 (`logx`, `logy`)
+`logy=True` を引数に加えるだけで、Y軸が対数スケールに切り替わります。
+
+```python
+fig, sp_arr = create_symple_plots(1, 2, figsize=(12, 4))
+x = np.linspace(0.1, 10, 100)
+
+sp_arr[0].plot(x, 10**x, alab=["X", "Y"])
+sp_arr[1].plot(x, 10**x, alab=["X", "Y (Log)"], logy=True)
+```
+![対数軸](images/example3_log.png)
+
+### 4. 目盛り数値の非表示 (`nox`, `noy`)
+目盛りや枠線は残したまま、数値ラベルだけを消したい場合は `nox=True` または `noy=True` を指定します。
+
+```python
+fig, sp_arr = create_symple_plots(1, 2, figsize=(12, 4))
+x = np.linspace(0, 10, 100)
+
+sp_arr[0].plot(x, np.sin(x), alab=["X", "Y"])
+sp_arr[1].plot(x, np.sin(x), alab=["X", "Y (Hidden Ticks)"], noy=True)
+```
+![目盛り非表示](images/example4_noticks.png)
+
+### 5. Inset Zoom（自動探索・拡大小窓）
 
 特定の部分を強調したい場合、`add_inset_zoom` メソッドを使います。範囲を指定するだけでY方向のスケールは自動計算されます。
 
@@ -89,9 +125,35 @@ sp.add_inset_zoom(xlim=[7.2, 7.8], bounds='upper left')
 ```
 
 **▼ 出力例:**
-![Inset Zoom](images/example2_zoom.png)
+![Inset Zoom](images/example5_zoom.png)
 
-### 3. 回帰分析と補助線 (Regression & Guide Lines)
+### 6. 個別カラー指定と強制ズーム (Custom Color & Auto Zoom)
+
+`col` 引数で特定のプロットだけ色を変更したり、`zoom` 引数を使って「後から追加したデータ」の範囲にグラフ全体をピタッとフォーカスさせることができます。`zoomx` 引数を渡すことで、小窓の自動生成も1行で記述可能です。
+
+```python
+fig6, sp_arr6 = create_symple_plots(2, 2)
+
+x_bg = np.linspace(0, 20, 100)
+y_bg = np.sin(x_bg)
+x_target = np.linspace(5, 10, 50)
+y_target = np.sin(x_target)
+
+# zoom='x', zoom='y', zoom='xy' で特定データの範囲にグラフを合わせる
+sp_arr6[0].plot(x_bg, y_bg, col='gray', linestyle=['--'])
+sp_arr6[0].plot(x_target, y_target, col='red', zoom='x', linewidth=3)
+
+# zoomx=[min, max] で自動 Inset Zoom
+sp_arr6[3].plot(x_bg, y_bg, col='gray')
+x_peak = np.linspace(7.2, 7.8, 50)
+y_peak = np.sin(x_peak) + 3 * np.exp(-((x_peak - 7.5)**2) / 0.01)
+sp_arr6[3].plot(x_peak, y_peak, col='green', zoomx=[7.2, 7.8])
+```
+
+**▼ 出力例:**
+![Custom Color and Zoom](images/example6_zoom_col.png)
+
+### 7. 回帰分析と補助線 (Regression & Guide Lines)
 
 `Regression` メソッドは、引数に「整数」を渡せば多項式回帰を、「関数オブジェクト」を渡せば非線形フィッティングを実行します。`auto_p0=True` を指定すると、Optunaによるベイズ最適化で最適な初期値を自動探索します。
 
@@ -104,7 +166,6 @@ x1 = np.linspace(-5, 5, 30)
 y1 = 0.5 * x1**3 - 2 * x1 + np.random.normal(0, 5, 30)
 sp1.scatter(x1, y1, alab=["X", "Y"], lab="Data")
 sp1.Regression(regr=3) # 3次関数でフィッティング
-sp1.ax.set_title("Polynomial Regression (regr=3)")
 
 # --- パネル2: 任意関数フィッティングと補助線 ---
 sp2 = sp_arr[1]
@@ -122,13 +183,12 @@ def exp_decay(x, a, b):
 
 # Optunaを使用して初期値を自動探索
 sp2.Regression(regr=exp_decay, auto_p0=True, n_trials=50, bounds=([0, 0], [10, 5]))
-sp2.ax.set_title("Optuna Auto Fit & Guide Lines")
 ```
 
 **▼ 出力例:**
-![回帰と補助線](images/example3_regression.png)
+![回帰と補助線](images/example7_regression.png)
 
-### 4. 画像プロット (Imshow) と 3D プロット
+### 8. 画像プロット (Imshow) と 3D プロット
 
 2Dマッピング画像や3D空間のプロットもサポートしています。
 
@@ -156,11 +216,11 @@ sp2.tdscatter(
 ```
 
 **▼ 出力例:**
-![Imshowと3D](images/example4_3d.png)
+![Imshowと3D](images/example8_3d.png)
 
 ---
 
-### 5. 論文・プレゼン用ユーティリティ (Auto Style & Labels)
+### 9. 論文・プレゼン用ユーティリティ (Auto Style & Labels)
 
 論文やスライド作成を加速するため、描画スタイルの一括適用（`style`）と、各パネルへの `(a)`, `(b)` ラベルの自動付与（`auto_label`）をサポートしています。
 
@@ -174,51 +234,7 @@ sp_arr[1].scatter(x, x**3, alab=["Time", "Value"], size=80, marker='s', lab="Qua
 ```
 
 **▼ 出力例:**
-![Auto Style & Labels](images/example5_utils.png)
-
----
-
-### 6. 個別カラー指定と強制ズーム (Custom Color & Auto Zoom)
-
-`col` 引数で特定のプロットだけ色を変更したり、`zoom` 引数を使って「後から追加したデータ」の範囲にグラフ全体をピタッとフォーカスさせることができます。
-
-```python
-fig6, sp_arr6 = create_symple_plots(2, 2)
-
-x_bg = np.linspace(0, 20, 100)
-y_bg = np.sin(x_bg)
-
-# --- 左パネル: `zoom='x'` のテスト（Y軸は維持し、X軸だけ上書きズーム） ---
-sp6_1 = sp_arr6[0]
-sp6_2 = sp_arr6[1]
-sp6_3 = sp_arr6[2]
-sp6_1.plot(x_bg, y_bg, col='gray', lab="Background", linestyle=['--'], alab=["X", "Y"])
-sp6_2.plot(x_bg, y_bg, col='gray', lab="Background", linestyle=['--'], alab=["X", "Y"])
-sp6_3.plot(x_bg, y_bg, col='gray', lab="Background", linestyle=['--'], alab=["X", "Y"])
-
-x_target = np.linspace(5, 10, 50)
-y_target = np.sin(x_target)
-# zoom='x' を指定すると、Y軸の高さ(±1)は保ったまま、X軸だけが 5〜10 にズームされる
-sp6_1.plot(x_target, y_target, col='red', lab="Target (zoom='x')", zoom='x', linewidth=3)
-sp6_2.plot(x_target, y_target, col='red', lab="Target (zoom='y')", zoom='y', linewidth=3)
-sp6_3.plot(x_target, y_target, col='red', lab="Target (zoom='both')", zoom='xy', linewidth=3)
-sp6_1.ax.set_title("zoom='x'", fontsize=14)
-sp6_2.ax.set_title("zoom='y'", fontsize=14)
-sp6_3.ax.set_title("zoom='xy'", fontsize=14)
-
-# --- 右パネル: `zoomx` のテスト（プロットと同時に拡大小窓を自動生成） ---
-sp6_4 = sp_arr6[3]
-sp6_4.plot(x_bg, y_bg, col='gray', lab="Full Data", alab=["X", "Y"])
-
-# zoomx=[7.2, 7.8] を引数に入れるだけで、勝手に add_inset_zoom が発動する！
-x_peak = np.linspace(7.2, 7.8, 50)
-y_peak = np.sin(x_peak) + 3 * np.exp(-((x_peak - 7.5)**2) / 0.01)
-sp6_4.plot(x_peak, y_peak, col='green', lab="Sharp Peak", zoomx=[7.2, 7.8])
-sp6_4.ax.set_title("Auto Inset Zoom (zoomx)", fontsize=14)
-```
-
-**▼ 出力例:**
-![Custom Color and Zoom](images/example6_zoom_col.png)
+![Auto Style & Labels](images/example9_utils.png)
 
 ---
 
