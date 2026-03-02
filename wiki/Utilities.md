@@ -104,29 +104,30 @@ print(f"Deleted directory: {test_dir}")
 ### `auto_curve_fit(f, xdata, ydata)`
 `auto_p0=True` を指定すると、**Optuna（ベイズ最適化）**を用いて高速にパラメータの大域探索を行い、最適な初期値（`p0`）を自動で決定してから局所最適化を実行します。
 
-通常の `curve_fit` では、周波数や位相が含まれる「振動関数」などは、初期値を与えないと局所解（間違った周期）に陥って100%失敗します。Optuna連携はこのような初期値依存性の強いモデルを解決します。
+通常の `curve_fit` は初期値が与えられないと全て `1.0` で計算を開始します。そのため、正解のピーク位置が遠く離れている関数や、勾配がゼロに近い領域が広い関数（鋭いガウス関数など）では、確実に局所解に陥りフィッティングに失敗します。Optuna連携はこのような初期値依存性の強いモデルを一発で解決します。
 
 **▶ 実行して試せるコード:**
 ```python
 import numpy as np
 from symple_plot import auto_curve_fit
 
-# 初期値がないと確実に失敗する減衰正弦波 (Damped Sine Wave)
-def damped_sine(x, amp, decay, freq, phase):
-    return amp * np.exp(-decay * x) * np.sin(2 * np.pi * freq * x + phase)
+# 鋭いピークを持つガウス関数 + バックグラウンド
+# 初期値(mu=1.0)が遠いと勾配がほぼゼロになり、通常のcurve_fitでは絶対に解にたどり着けません。
+def narrow_peak(x, amp, mu, sigma, bg):
+    return amp * np.exp(-((x - mu)**2) / (2 * sigma**2)) + bg
 
-# テスト用データの生成 (正解: amp=5.0, decay=0.5, freq=2.0, phase=0.0)
-x_data = np.linspace(0, 5, 200)
-true_params = [5.0, 0.5, 2.0, 0.0]
-y_data = damped_sine(x_data, *true_params) + np.random.normal(0, 0.2, 200)
+# 探索範囲 x=[0, 100] の中に、非常に狭いピーク (mu=85.0, sigma=0.5) を設定
+x_data = np.linspace(0, 100, 500)
+true_params = [20.0, 85.0, 0.5, 5.0]
+y_data = narrow_peak(x_data, *true_params) + np.random.normal(0, 0.5, 500)
 
 # Optunaで初期値を自動探索してフィッティング
 popt, pcov = auto_curve_fit(
-    damped_sine, x_data, y_data, 
+    narrow_peak, x_data, y_data, 
     auto_p0=True, 
     n_trials=150,  # 探索回数
-    # パラメータの探索範囲: amp, decay, freq, phase
-    bounds=([0, 0, 0.1, -np.pi], [10, 2, 5.0, np.pi]) 
+    # パラメータの探索範囲: amp, mu, sigma, bg
+    bounds=([0, 0, 0.1, 0], [50, 100, 5.0, 20])
 )
 
 print("\n=== Fitting Results ===")

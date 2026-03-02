@@ -18,33 +18,37 @@
 GitHubから直接インストールできます。
 
 ```bash
-pip install githttps://github.com/time-noodles/symple_plot.git
+pip install git+https://github.com/time-noodles/symple_plot.git
 ```
 
 ## 🚀 基本的な使い方 (Basic Usage)
 
-`create_symple_plots` を使ってグラフ枠を生成し、`plot` や `scatter` メソッドを呼び出します。
+左がMatplotlibのデフォルト、右が `symple_plot` を使用した出力です。
+データをリストで渡し、ラベルを指定するだけで、自動的に内向きの目盛りや美しいフォーマットが適用されます。
 
 ```python
 import numpy as np
 import matplotlib.pyplot as plt
-from symple_plot import create_symple_plots
+from symple_plot import symple_plot
 
-# 1行1列のグラフを生成
-fig, sp = create_symple_plots(nrows=1, ncols=1)
-
+fig = plt.figure(figsize=(12, 5))
 x = np.linspace(0, 10, 50)
-y1 = np.sin(x)
-y2 = np.cos(x)
+y1, y2 = np.sin(x), np.cos(x)
 
-# データをリストで渡し、ラベルや引数を指定するだけ
-sp.plot(
-    [x, x], [y1, y2],
-    alab=["Time (s)", "Amplitude (a.u.)"],
-    lab=["Sample A", "Sample B"],
-    linestyle=['-', '--'],
-    linewidth=2
-)
+# --- 左: Matplotlib Default ---
+ax1 = fig.add_subplot(121)
+ax1.plot(x, y1, label="Sample A")
+ax1.plot(x, y2, label="Sample B")
+ax1.set_xlabel("Time (s)")
+ax1.set_ylabel("Amplitude (a.u.)")
+ax1.legend()
+ax1.set_title("Matplotlib Default")
+
+# --- 右: symple_plot ---
+ax2 = fig.add_subplot(122)
+sp = symple_plot(ax2)
+sp.plot([x, x], [y1, y2], alab=["Time (s)", "Amplitude (a.u.)"], lab=["Sample A", "Sample B"])
+ax2.set_title("symple_plot")
 
 plt.show()
 ```
@@ -58,15 +62,31 @@ plt.show()
 
 ### 1. 指数の自動統一と科学的記数法
 
-大きな桁数のデータをプロットすると、軸全体で指数が統一され、`$0.5 \times 10^4$` のように美しくフォーマットされます。
+大きな桁数のデータをプロットする際、`symple_plot` は軸全体で指数を自動的に統一し、`$2.5 \times 10^4$` のように美しくフォーマットします。
 
 ```python
-fig, sp = create_symple_plots(1, 1)
+import numpy as np
+import matplotlib.pyplot as plt
+from symple_plot import symple_plot
 
+fig = plt.figure(figsize=(12, 5))
 x = np.linspace(1, 5, 5)
 y = np.array([5000, 10000, 15000, 20000, 25000])
 
+# --- 左: Matplotlib Default ---
+ax1 = fig.add_subplot(121)
+ax1.scatter(x, y)
+ax1.set_xlabel("X")
+ax1.set_ylabel("Large Value")
+ax1.set_title("Matplotlib Default")
+
+# --- 右: symple_plot ---
+ax2 = fig.add_subplot(122)
+sp = symple_plot(ax2)
 sp.scatter(x, y, alab=["X", "Large Value"])
+ax2.set_title("symple_plot")
+
+plt.show()
 ```
 
 **▼ 出力例:**
@@ -76,11 +96,16 @@ sp.scatter(x, y, alab=["X", "Large Value"])
 特定の範囲だけに描画を制限したい場合は、`cx` または `cy` に `[min, max]` を渡します。左の図はデフォルト、右の図は範囲を固定した例です。
 
 ```python
+import numpy as np
+from symple_plot import create_symple_plots
+
 fig, sp_arr = create_symple_plots(1, 2, figsize=(12, 4))
 x = np.linspace(0, 10, 100)
 
 sp_arr[0].plot(x, np.sin(x), alab=["X", "Y"])
+sp_arr[0].ax.set_title("Default")
 sp_arr[1].plot(x, np.sin(x), alab=["X (Limited)", "Y (Limited)"], cx=[2, 8], cy=[-0.8, 0.8])
+sp_arr[1].ax.set_title("cx=[2, 8], cy=[-0.8, 0.8]")
 ```
 ![範囲固定](images/example2_range.png)
 
@@ -88,11 +113,16 @@ sp_arr[1].plot(x, np.sin(x), alab=["X (Limited)", "Y (Limited)"], cx=[2, 8], cy=
 `logy=True` を引数に加えるだけで、Y軸が対数スケールに切り替わります。
 
 ```python
+import numpy as np
+from symple_plot import create_symple_plots
+
 fig, sp_arr = create_symple_plots(1, 2, figsize=(12, 4))
 x = np.linspace(0.1, 10, 100)
 
 sp_arr[0].plot(x, 10**x, alab=["X", "Y"])
+sp_arr[0].ax.set_title("Default")
 sp_arr[1].plot(x, 10**x, alab=["X", "Y (Log)"], logy=True)
+sp_arr[1].ax.set_title("logy=True")
 ```
 ![対数軸](images/example3_log.png)
 
@@ -100,28 +130,56 @@ sp_arr[1].plot(x, 10**x, alab=["X", "Y (Log)"], logy=True)
 目盛りや枠線は残したまま、数値ラベルだけを消したい場合は `nox=True` または `noy=True` を指定します。
 
 ```python
+import numpy as np
+from symple_plot import create_symple_plots
+
 fig, sp_arr = create_symple_plots(1, 2, figsize=(12, 4))
 x = np.linspace(0, 10, 100)
 
 sp_arr[0].plot(x, np.sin(x), alab=["X", "Y"])
+sp_arr[0].ax.set_title("Default")
 sp_arr[1].plot(x, np.sin(x), alab=["X", "Y (Hidden Ticks)"], noy=True)
+sp_arr[1].ax.set_title("noy=True")
 ```
 ![目盛り非表示](images/example4_noticks.png)
 
 ### 5. Inset Zoom（自動探索・拡大小窓）
 
-特定の部分を強調したい場合、`add_inset_zoom` メソッドを使います。範囲を指定するだけでY方向のスケールは自動計算されます。
+データの特定の部分を強調したい場合、小窓（Inset Zoom）を簡単に作成できます。
+引数 `zoomx` を渡して1行で自動生成する方法と、描画後に `add_inset_zoom` メソッドで明示的に範囲を指定する方法があり、どちらもY方向のスケールや最適な配置場所は自動で計算されます。
 
 ```python
-fig, sp = create_symple_plots(1, 1)
+import numpy as np
+from symple_plot import create_symple_plots
 
-x = np.linspace(0, 10, 500)
-y = np.sin(x) + 5 * np.exp(-((x - 7.5)**2) / 0.01)
+# 1行3列のグラフを生成
+fig, sp_arr = create_symple_plots(1, 3, figsize=(15, 5))
 
-sp.plot(x, y, alab=["X", "Intensity"])
+x_bg = np.linspace(0, 20, 200)
+y_bg = np.sin(x_bg)
+x_peak = np.linspace(7.2, 7.8, 50)
+y_peak = np.sin(x_peak) + 3 * np.exp(-((x_peak - 7.5)**2) / 0.01)
 
-# x=7.2〜7.8の範囲を指定すると、Yの範囲を自動探索して左上に拡大図を生成
-sp.add_inset_zoom(xlim=[7.2, 7.8], bounds='upper left')
+# 全体を結合してソート (左のプロット用)
+x_all = np.concatenate([x_bg, x_peak])
+y_all = np.concatenate([y_bg, y_peak])
+sort_idx = np.argsort(x_all)
+x_all, y_all = x_all[sort_idx], y_all[sort_idx]
+
+# --- 1. Original (通常プロット) ---
+sp_arr[0].plot(x_all, y_all, alab=["X", "Intensity"], col='gray')
+sp_arr[0].ax.set_title("1. Original")
+
+# --- 2. zoomx=[] で指定 ---
+sp_arr[1].plot(x_bg, y_bg, col='gray', alab=["X", "Intensity"])
+sp_arr[1].plot(x_peak, y_peak, col='green', zoomx=[7.2, 7.8])
+sp_arr[1].ax.set_title("2. zoomx=[7.2, 7.8]")
+
+# --- 3. add_inset_zoom で指定 ---
+sp_arr[2].plot(x_bg, y_bg, col='gray', alab=["X", "Intensity"])
+sp_arr[2].plot(x_peak, y_peak, col='green')
+sp_arr[2].add_inset_zoom(xlim=[7.2, 7.8], bounds='upper left')
+sp_arr[2].ax.set_title("3. add_inset_zoom()")
 ```
 
 **▼ 出力例:**
@@ -129,25 +187,22 @@ sp.add_inset_zoom(xlim=[7.2, 7.8], bounds='upper left')
 
 ### 6. 個別カラー指定と強制ズーム (Custom Color & Auto Zoom)
 
-`col` 引数で特定のプロットだけ色を変更したり、`zoom` 引数を使って「後から追加したデータ」の範囲にグラフ全体をピタッとフォーカスさせることができます。`zoomx` 引数を渡すことで、小窓の自動生成も1行で記述可能です。
+`col` 引数で特定のプロットだけ色を変更したり、`zoom` 引数を使って「後から追加したデータ」の範囲にグラフ全体をピタッとフォーカスさせることができます。
 
 ```python
-fig6, sp_arr6 = create_symple_plots(2, 2)
+import numpy as np
+from symple_plot import create_symple_plots
 
-x_bg = np.linspace(0, 20, 100)
-y_bg = np.sin(x_bg)
-x_target = np.linspace(5, 10, 50)
-y_target = np.sin(x_target)
+fig, sp_arr = create_symple_plots(1, 3, figsize=(15, 4))
+x_bg, y_bg = np.linspace(0, 20, 100), np.sin(np.linspace(0, 20, 100))
+x_target, y_target = np.linspace(5, 10, 50), np.sin(np.linspace(5, 10, 50))
 
 # zoom='x', zoom='y', zoom='xy' で特定データの範囲にグラフを合わせる
-sp_arr6[0].plot(x_bg, y_bg, col='gray', linestyle=['--'])
-sp_arr6[0].plot(x_target, y_target, col='red', zoom='x', linewidth=3)
-
-# zoomx=[min, max] で自動 Inset Zoom
-sp_arr6[3].plot(x_bg, y_bg, col='gray')
-x_peak = np.linspace(7.2, 7.8, 50)
-y_peak = np.sin(x_peak) + 3 * np.exp(-((x_peak - 7.5)**2) / 0.01)
-sp_arr6[3].plot(x_peak, y_peak, col='green', zoomx=[7.2, 7.8])
+for i, title, zoom in zip(range(3), ["zoom='x'", "zoom='y'", "zoom='xy'"], ['x', 'y', 'xy']):
+    sp = sp_arr[i]
+    sp.plot(x_bg, y_bg, col='gray', lab="Background", linestyle=['--'], alab=["X", "Y"])
+    sp.plot(x_target, y_target, col='red', lab="Target", zoom=zoom, linewidth=3)
+    sp.ax.set_title(title, fontsize=14)
 ```
 
 **▼ 出力例:**
@@ -158,6 +213,9 @@ sp_arr6[3].plot(x_peak, y_peak, col='green', zoomx=[7.2, 7.8])
 `Regression` メソッドは、引数に「整数」を渡せば多項式回帰を、「関数オブジェクト」を渡せば非線形フィッティングを実行します。`auto_p0=True` を指定すると、Optunaによるベイズ最適化で最適な初期値を自動探索します。
 
 ```python
+import numpy as np
+from symple_plot import create_symple_plots
+
 fig, sp_arr = create_symple_plots(1, 2, figsize=(12, 5))
 
 # --- パネル1: 多項式回帰 (3次関数) ---
@@ -166,6 +224,7 @@ x1 = np.linspace(-5, 5, 30)
 y1 = 0.5 * x1**3 - 2 * x1 + np.random.normal(0, 5, 30)
 sp1.scatter(x1, y1, alab=["X", "Y"], lab="Data")
 sp1.Regression(regr=3) # 3次関数でフィッティング
+sp1.ax.set_title("Polynomial Regression (regr=3)")
 
 # --- パネル2: 任意関数フィッティングと補助線 ---
 sp2 = sp_arr[1]
@@ -183,6 +242,7 @@ def exp_decay(x, a, b):
 
 # Optunaを使用して初期値を自動探索
 sp2.Regression(regr=exp_decay, auto_p0=True, n_trials=50, bounds=([0, 0], [10, 5]))
+sp2.ax.set_title("Optuna Auto Fit & Guide Lines")
 ```
 
 **▼ 出力例:**
@@ -193,6 +253,9 @@ sp2.Regression(regr=exp_decay, auto_p0=True, n_trials=50, bounds=([0, 0], [10, 5
 2Dマッピング画像や3D空間のプロットもサポートしています。
 
 ```python
+import numpy as np
+from symple_plot import create_symple_plots, symple_plot
+
 fig, sp_arr = create_symple_plots(1, 2, figsize=(12, 5))
 
 # --- パネル1: Imshow ---
@@ -225,6 +288,9 @@ sp2.tdscatter(
 論文やスライド作成を加速するため、描画スタイルの一括適用（`style`）と、各パネルへの `(a)`, `(b)` ラベルの自動付与（`auto_label`）をサポートしています。
 
 ```python
+import numpy as np
+from symple_plot import create_symple_plots
+
 # style='slide' で太字・大きな文字に設定。auto_label=True で (a), (b) を自動付与
 fig, sp_arr = create_symple_plots(1, 2, figsize=(10, 4), style='slide', auto_label=True)
 
