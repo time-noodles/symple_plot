@@ -246,11 +246,11 @@ sp6_4.ax.set_title("Auto Inset Zoom (zoomx)", fontsize=14)
 | `zoom` | str | 今回渡したデータ範囲に枠を強制拡大 ('x', 'y', 'xy') |
 | `zoomx` / `zoomy` | list | 指定範囲 `[min, max]` の拡大図（Inset Zoom小窓）を生成 |
 | `col` | str/list | プロットの色を指定 ('red', 'plasma', 'mode1' 等) |
-| `marker` / `size` | - | [scatter等] マーカー形状とサイズ |
-| `linestyle` / `linewidth` | - | [plot等] 線の種類と太さ |
 | `vx` / `hy` | list/float | 垂直線(x) / 水平線(y) を引く座標 |
 | `vcol` / `hcol` | str | 垂直/水平線の色 (デフォルト: 'gray') |
 | `vstyle` / `hstyle` | str | 垂直/水平線のスタイル (デフォルト: '--') |
+| `marker` / `size` | - | [scatter等] マーカー形状とサイズ |
+| `linestyle` / `linewidth` | - | [plot等] 線の種類と太さ |
 | `auto_p0` | bool | [Regression] Trueにすると、Optunaで非線形フィッティングの初期値を自動探索する |
 | `n_trials`| int  | [Regression] `auto_p0=True` の際のOptuna探索回数（デフォルト: 100） |
 | `p0` / `bounds`| - | [Regression] 非線形フィッティングの初期推測値 / 探索範囲 |
@@ -262,7 +262,7 @@ sp6_4.ax.set_title("Auto Inset Zoom (zoomx)", fontsize=14)
 `symple_plot` には、グラフ描画以外にも実験データの整理やモデリングに役立つ便利な関数群が含まれています。データの前処理、ファイルの自然順ソート、Optunaを単独で呼び出すフィッティング機能などが揃っています。
 
 詳細な使い方や実例については、以下のWikiページをご覧ください。
-👉 **[データ前処理・ファイル操作・解析ユーティリティ (Wiki)](https://github.com/time-noodles/wiki/Utilities.md)**
+👉 **[データ前処理・ファイル操作・解析ユーティリティ (Wiki)](wiki\Utilities.md)**
 
 ---
 
