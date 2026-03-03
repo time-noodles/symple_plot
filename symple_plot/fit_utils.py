@@ -40,7 +40,7 @@ def auto_curve_fit(f, xdata, ydata, p0=None, bounds=(-np.inf, np.inf), auto_p0=F
         print(f"Auto-selected p0 (Optuna, {n_trials} trials): {np.round(p0, 4)}")
         
     # 最終的な局所最適化
-    popt, pcov = curve_fit(f, xdata, ydata, p0=p0, bounds=bounds)
+    popt, pcov = curve_fit(f, xdata, ydata, p0=p0, bounds=bounds, maxfev=int(1e4))
     return popt, pcov
 
 def reg_n(reg, x):
