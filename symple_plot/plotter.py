@@ -105,7 +105,7 @@ def create_symple_plots(nrows=1, ncols=1, figsize=None, style=None, auto_label=F
     if style:
         set_style(style)
 
-    if figsize is None: figsize = (6 * ncols, 5 * nrows)
+    if figsize is None: figsize = (7*ncols+(ncols-1),5*nrows+(ncols-1)*2)
     fig, axes = plt.subplots(nrows, ncols, figsize=figsize, **kwargs)
     
     # グラフオブジェクトの生成
