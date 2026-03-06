@@ -139,7 +139,7 @@ def main():
     sp7[1].scatter(np.linspace(0.1, 5, 50), 2.5 * np.exp(-1.2 * np.linspace(0.1, 5, 50)) + np.random.normal(0, 0.05, 50), 
                    alab=["Time (s)", "Intensity"], vx=[1, 3], vcol='red', vstyle='--', hy=0, hcol='blue', hstyle=':')
     sp7[1].Regression(regr=lambda x, a, b: a * np.exp(-b * x), auto_p0=True, bounds=([0, 0], [10, 5]))
-    sp7[1].ax.set_title("Optuna Auto Fit & Guide Lines")
+    sp7[1].ax.set_title("Global Auto Fit & Guide Lines")
     fig7.savefig("images/example7_regression.png", dpi=300, bbox_inches='tight')
     plt.close(fig7)
 

@@ -8,7 +8,7 @@
 * **Auto Smart Formatter**: 軸のスケールを自動解析し、`5.0 × 10^4` のような美しい科学的記数法に自動フォーマットします。複数のデータ間で指数も統一されます。
 * **Inset Zoom (自動拡大図)**: 範囲 (`xlim` または `ylim`) を指定するだけで、データの該当部分を自動探索し、小窓（Inset）として拡大描画します。
 * **GrADS & Perceptually Uniform Colormaps**: 気象学で人気のGrADSカラーマップを標準搭載。他にも `turbo`, `plasma` などの知覚的均等カラーマップを視認性の高い範囲に絞って適用します。
-* **高度な回帰分析 (Optuna搭載)**: 任意の次数の多項式回帰や、ユーザー定義関数による非線形フィッティングを自動実行します。`optuna` を用いたベイズ最適化による初期値(`p0`)の自動大域探索にも対応しています。
+* **高度な回帰分析 (Optuna搭載)**: 任意の次数の多項式回帰や、ユーザー定義関数による`非線形フィッティング`を自動実行します。`SciPy`の差分進化法（`Differential Evolution`）を用いた大域的最適化による初期値(`p0`)の自動探索にも対応しており、複雑な物理モデルでも局所解を回避します。
 * **ワンライナー設定**: 軸ラベル、凡例、対数軸、範囲、垂直/水平の補助線(`vx`, `hy`)、アスペクト比などを1行の引数で完結させます。
 
 ---
@@ -240,9 +240,9 @@ sp2.scatter(x2, y2, alab=["Time (s)", "Intensity"], lab="Data",
 def exp_decay(x, a, b):
     return a * np.exp(-b * x)
 
-# Optunaを使用して初期値を自動探索
+# 差分進化法（Differential Evolution）を使用して初期値を大域探索
 sp2.Regression(regr=exp_decay, auto_p0=True, n_trials=50, bounds=([0, 0], [10, 5]))
-sp2.ax.set_title("Optuna Auto Fit & Guide Lines")
+sp2.ax.set_title("Global Auto Fit & Guide Lines")
 ```
 
 **▼ 出力例:**

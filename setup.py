@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="symple_plot",
-    version="0.1.3.10",
+    version="0.1.3.11",
     packages=find_packages(),
     install_requires=[
         "numpy",
@@ -10,6 +10,5 @@ setup(
         "pandas",
         "scikit-learn",
         "scipy",
-        "optuna",
     ]
 )
