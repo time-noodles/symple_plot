@@ -170,7 +170,7 @@ from symple_plot import remove_background
 
 # シグナル + ドリフトするバックグラウンドを作成
 x = np.linspace(0, 10, 200)
-signal_true = np.exp(-((x - 5)**2) / 0.1)  # 鋭いピーク
+signal_true = 50*np.exp(-((x - 5)**2) / 0.1)  # 鋭いピーク
 bg_drift = 0.5 * np.sin(x * 0.5) + 0.1 * x   # うねるベースライン
 y_raw = signal_true + bg_drift
 

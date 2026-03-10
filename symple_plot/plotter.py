@@ -276,10 +276,16 @@ class symple_plot:
         
         if not is_3d:
             self.ax.minorticks_on()
+            # 🌟 第二軸が存在する場合にお互いの目盛りが侵食しないように制御 🌟
+            left_on = not getattr(self, 'is_twinx', False) and not getattr(self, 'hide_left_ticks', False)
+            right_on = not getattr(self, 'hide_right_ticks', False)
+            bottom_on = not getattr(self, 'is_twiny', False) and not getattr(self, 'hide_bottom_ticks', False)
+            top_on = not getattr(self, 'hide_top_ticks', False)
+
             self.ax.tick_params(which='major', direction='in', length=self.tlength, 
-                                top=True, bottom=True, left=True, right=True, labelsize=self.axinum)
+                                top=top_on, bottom=bottom_on, left=left_on, right=right_on, labelsize=self.axinum)
             self.ax.tick_params(which='minor', direction='in', length=self.tlength * 0.5, 
-                                top=True, bottom=True, left=True, right=True)
+                                top=top_on, bottom=bottom_on, left=left_on, right=right_on)
         else:
             self.ax.tick_params(axis='both', labelsize=self.axinum, length=self.tlength)
 
@@ -729,11 +735,15 @@ class symple_plot:
     # ==========================================
     def twinx(self, **kwargs):
         """第二Y軸 (右側) を作成して symple_plot インスタンスを返す。"""
-        self.aspect = 'auto'            # 元の軸のアスペクト比を自動にする
+        self.aspect = 'auto'
         self.ax.set_aspect('auto')
+        self.hide_right_ticks = True
+        self.ax.tick_params(right=False, which='both')  # 元の軸の右目盛りを消す
+        
         ax2 = self.ax.twinx()
         sp2 = symple_plot(ax2)
-        sp2.aspect = 'auto'             # 追加する軸のアスペクト比も自動にする
+        sp2.aspect = 'auto'
+        sp2.is_twinx = True  # 新しい軸の左目盛りをオフにするフラグ
         
         if alab := kwargs.get('alab'):
             ax2.set_ylabel(alab, fontsize=self.axilab)
@@ -748,9 +758,13 @@ class symple_plot:
         """第二X軸 (上側) を作成して symple_plot インスタンスを返す。"""
         self.aspect = 'auto'
         self.ax.set_aspect('auto')
+        self.hide_top_ticks = True
+        self.ax.tick_params(top=False, which='both')  # 元の軸の上目盛りを消す
+        
         ax2 = self.ax.twiny()
         sp2 = symple_plot(ax2)
         sp2.aspect = 'auto'
+        sp2.is_twiny = True  # 新しい軸の下目盛りをオフにするフラグ
         
         if alab := kwargs.get('alab'):
             ax2.set_xlabel(alab, fontsize=self.axilab)
@@ -761,22 +775,23 @@ class symple_plot:
             sp2.col = col
         return sp2
 
-    # ==========================================
-    # 🌟 第二軸 (Twin Axes & Secondary Axes) 🌟
-    # ==========================================
-    # ... (twinx, twiny のコードはそのまま維持) ...
-
     def secondary_xaxis(self, functions, location='top', **kwargs):
         """スケール変換用の第二X軸を作成する。
         単一の関数(順関数)のみを渡した場合は、SciPyを用いて逆関数を自動生成する。
         """
+        if location == 'top':
+            self.hide_top_ticks = True
+            self.ax.tick_params(top=False, which='both')
+        elif location == 'bottom':
+            self.hide_bottom_ticks = True
+            self.ax.tick_params(bottom=False, which='both')
+            
         if callable(functions):
             from scipy.interpolate import interp1d
             vmin, vmax = self.ax.get_xlim()
             margin = abs(vmax - vmin) * 0.5
             x_arr = np.linspace(vmin - margin, vmax + margin, 1000)
             y_arr = functions(x_arr)
-            # 単調性に配慮してソート
             if y_arr[-1] < y_arr[0]:
                 x_arr, y_arr = x_arr[::-1], y_arr[::-1]
             inv_func = interp1d(y_arr, x_arr, kind='linear', fill_value='extrapolate')
@@ -787,20 +802,31 @@ class symple_plot:
         sec_ax = self.ax.secondary_xaxis(location, functions=funcs)
         if alab := kwargs.get('alab'):
             sec_ax.set_xlabel(alab, fontsize=self.axilab)
-        sec_ax.tick_params(labelsize=self.axinum)
+            
+        # 🌟 主目盛り・補助目盛りの内向き設定とサイズ適用 🌟
+        sec_ax.minorticks_on()
+        sec_ax.tick_params(which='major', direction='in', length=self.tlength, labelsize=self.axinum)
+        sec_ax.tick_params(which='minor', direction='in', length=self.tlength * 0.5)
+        
         return sec_ax
 
     def secondary_yaxis(self, functions, location='right', **kwargs):
         """スケール変換用の第二Y軸を作成する。
         単一の関数(順関数)のみを渡した場合は、SciPyを用いて逆関数を自動生成する。
         """
+        if location == 'right':
+            self.hide_right_ticks = True
+            self.ax.tick_params(right=False, which='both')
+        elif location == 'left':
+            self.hide_left_ticks = True
+            self.ax.tick_params(left=False, which='both')
+            
         if callable(functions):
             from scipy.interpolate import interp1d
             vmin, vmax = self.ax.get_ylim()
             margin = abs(vmax - vmin) * 0.5
             y_arr = np.linspace(vmin - margin, vmax + margin, 1000)
             x_arr = functions(y_arr)
-            # 単調性に配慮してソート
             if x_arr[-1] < x_arr[0]:
                 y_arr, x_arr = y_arr[::-1], x_arr[::-1]
             inv_func = interp1d(x_arr, y_arr, kind='linear', fill_value='extrapolate')
@@ -811,5 +837,10 @@ class symple_plot:
         sec_ax = self.ax.secondary_yaxis(location, functions=funcs)
         if alab := kwargs.get('alab'):
             sec_ax.set_ylabel(alab, fontsize=self.axilab)
-        sec_ax.tick_params(labelsize=self.axinum)
+            
+        # 🌟 主目盛り・補助目盛りの内向き設定とサイズ適用 🌟
+        sec_ax.minorticks_on()
+        sec_ax.tick_params(which='major', direction='in', length=self.tlength, labelsize=self.axinum)
+        sec_ax.tick_params(which='minor', direction='in', length=self.tlength * 0.5)
+        
         return sec_ax
