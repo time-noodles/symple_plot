@@ -761,17 +761,54 @@ class symple_plot:
             sp2.col = col
         return sp2
 
+    # ==========================================
+    # 🌟 第二軸 (Twin Axes & Secondary Axes) 🌟
+    # ==========================================
+    # ... (twinx, twiny のコードはそのまま維持) ...
+
     def secondary_xaxis(self, functions, location='top', **kwargs):
-        """スケール変換用の第二X軸を作成する。functions=(forward_func, inverse_func) を渡す。"""
-        sec_ax = self.ax.secondary_xaxis(location, functions=functions)
+        """スケール変換用の第二X軸を作成する。
+        単一の関数(順関数)のみを渡した場合は、SciPyを用いて逆関数を自動生成する。
+        """
+        if callable(functions):
+            from scipy.interpolate import interp1d
+            vmin, vmax = self.ax.get_xlim()
+            margin = abs(vmax - vmin) * 0.5
+            x_arr = np.linspace(vmin - margin, vmax + margin, 1000)
+            y_arr = functions(x_arr)
+            # 単調性に配慮してソート
+            if y_arr[-1] < y_arr[0]:
+                x_arr, y_arr = x_arr[::-1], y_arr[::-1]
+            inv_func = interp1d(y_arr, x_arr, kind='linear', fill_value='extrapolate')
+            funcs = (functions, inv_func)
+        else:
+            funcs = functions
+
+        sec_ax = self.ax.secondary_xaxis(location, functions=funcs)
         if alab := kwargs.get('alab'):
             sec_ax.set_xlabel(alab, fontsize=self.axilab)
         sec_ax.tick_params(labelsize=self.axinum)
         return sec_ax
 
     def secondary_yaxis(self, functions, location='right', **kwargs):
-        """スケール変換用の第二Y軸を作成する。functions=(forward_func, inverse_func) を渡す。"""
-        sec_ax = self.ax.secondary_yaxis(location, functions=functions)
+        """スケール変換用の第二Y軸を作成する。
+        単一の関数(順関数)のみを渡した場合は、SciPyを用いて逆関数を自動生成する。
+        """
+        if callable(functions):
+            from scipy.interpolate import interp1d
+            vmin, vmax = self.ax.get_ylim()
+            margin = abs(vmax - vmin) * 0.5
+            y_arr = np.linspace(vmin - margin, vmax + margin, 1000)
+            x_arr = functions(y_arr)
+            # 単調性に配慮してソート
+            if x_arr[-1] < x_arr[0]:
+                y_arr, x_arr = y_arr[::-1], x_arr[::-1]
+            inv_func = interp1d(x_arr, y_arr, kind='linear', fill_value='extrapolate')
+            funcs = (functions, inv_func)
+        else:
+            funcs = functions
+
+        sec_ax = self.ax.secondary_yaxis(location, functions=funcs)
         if alab := kwargs.get('alab'):
             sec_ax.set_ylabel(alab, fontsize=self.axilab)
         sec_ax.tick_params(labelsize=self.axinum)

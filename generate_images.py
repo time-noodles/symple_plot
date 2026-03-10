@@ -196,7 +196,7 @@ def main():
     fig11.savefig("images/example11_shared_axes.png", dpi=300, bbox_inches='tight')
     plt.close(fig11)
 
-    # 12. 第二軸と変換
+    # 12. 第二軸と変換 
     fig12, sp_arr12 = create_symple_plots(1, 2, figsize=(14, 5))
 
     # パネル1: Twin Axes (第二Y軸)
@@ -212,9 +212,8 @@ def main():
     T_celsius = np.linspace(0, 100, 50)
     sp12_bottom.plot(T_celsius, np.sqrt(T_celsius), alab=["Temperature (°C)", "Value"])
     
-    def C_to_F(c): return c * 1.8 + 32
-    def F_to_C(f): return (f - 32) / 1.8
-    sp12_bottom.secondary_xaxis(location='top', functions=(C_to_F, F_to_C), alab="Temperature (°F)")
+    # 順関数(ラムダ式)のみを渡す
+    sp12_bottom.secondary_xaxis(lambda c: c * 1.8 + 32, location='top', alab="Temperature (°F)")
     sp12_bottom.ax.set_title("Secondary Xaxis (Scale Conv.)")
     
     fig12.savefig("images/example12_twin_axes.png", dpi=300, bbox_inches='tight')

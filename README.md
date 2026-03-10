@@ -374,11 +374,8 @@ sp2_bottom = sp_arr[1]
 T_celsius = np.linspace(0, 100, 50)
 sp2_bottom.plot(T_celsius, np.sqrt(T_celsius), alab=["Temperature (°C)", "Value"])
 
-# 上軸: 華氏への変換関数を渡す
-def C_to_F(c): return c * 1.8 + 32
-def F_to_C(f): return (f - 32) / 1.8
-
-sp2_bottom.secondary_xaxis(location='top', functions=(C_to_F, F_to_C), alab="Temperature (°F)")
+# 上軸: 華氏への変換関数(順関数)のみを渡す（逆関数はSciPyで自動生成されます）
+sp2_bottom.secondary_xaxis(lambda c: c * 1.8 + 32, location='top', alab="Temperature (°F)")
 ```
 
 **▼ 出力例:**
