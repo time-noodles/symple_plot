@@ -1,11 +1,10 @@
-### generate_images.py の完全版（インラインラベル対応版）
-
 import os
 import numpy as np
 import matplotlib.pyplot as plt
 from symple_plot import create_symple_plots, set_style, symple_plot, del_file
 
 del_file('*.csv')
+del_file('./images/*.png')
 
 def main():
     os.makedirs('images', exist_ok=True)
@@ -160,7 +159,6 @@ def main():
     plt.close(fig9)
     
     # 10. インラインラベル (Inline Labels) - 比較パネル版
-    
     def logistic(x, L, k, x0):
         return L / (1 + np.exp(-k * (x - x0)))    
     
@@ -169,15 +167,12 @@ def main():
     y1 = logistic(x10, 10, 0.8, 10)
     y2 = logistic(x10, 8, 0.5, 12) + 1.5
     
-    # 左: symple_plot Default (Legend)
     sp_arr10[0].plot([x10, x10], [y1, y2], 
                      alab=["Time (days)", "Growth Yield"], 
                      lab=["Sample A", "Sample B"],
                      col=["magenta", "darkviolet"])
     sp_arr10[0].ax.set_title("symple_plot Default (Legend)")
 
-    # 右: symple_plot (Inline)
-    # ラベルがデータの末端に潜り込み、一体感のある配置
     sp_arr10[1].plot([x10, x10], [y1, y2], 
                      alab=["Time (days)", "Growth Yield"], 
                      lab=["Sample A", "Sample B"], 
@@ -187,13 +182,74 @@ def main():
                      inline_pad=0.08,         
                      col=["magenta", "darkviolet"])
     sp_arr10[1].ax.set_title("symple_plot (Inline Labels)")
-    
     fig10.savefig("images/example10_inline.png", dpi=300, bbox_inches='tight')
     plt.close(fig10)
+
+    # 11. グリッド共有軸
+    fig11, sp_arr11 = create_symple_plots(2, 2, figsize=(10, 8), sharex=True, sharey=True)
+    x11 = np.linspace(0, 10, 100)
+    for i in range(4):
+        freq = i + 1
+        alab_11 = ["Time (s)", "Signal"] if i >= 2 else ["", "Signal"]
+        sp_arr11[i].plot(x11, np.sin(freq * x11), col='blue', alab=alab_11)
+        sp_arr11[i].ax.set_title(f"Frequency {freq}Hz")
+    fig11.savefig("images/example11_shared_axes.png", dpi=300, bbox_inches='tight')
+    plt.close(fig11)
+
+    # 12. 第二軸と変換
+    fig12, sp_arr12 = create_symple_plots(1, 2, figsize=(14, 5))
+
+    # パネル1: Twin Axes (第二Y軸)
+    sp12_left = sp_arr12[0]
+    x12_a = np.linspace(0.1, 10, 50)
+    sp12_left.plot(x12_a, x12_a**2, col='blue', alab=["Time (s)", "Linear Scale"])
+    sp12_right = sp12_left.twinx(col='red', alab="Log Scale")
+    sp12_right.plot(x12_a, np.exp(x12_a), logy=True)
+    sp12_left.ax.set_title("Twin Axes (Secondary Y)")
+
+    # パネル2: Secondary Xaxis (スケール変換)
+    sp12_bottom = sp_arr12[1]
+    T_celsius = np.linspace(0, 100, 50)
+    sp12_bottom.plot(T_celsius, np.sqrt(T_celsius), alab=["Temperature (°C)", "Value"])
     
+    def C_to_F(c): return c * 1.8 + 32
+    def F_to_C(f): return (f - 32) / 1.8
+    sp12_bottom.secondary_xaxis(location='top', functions=(C_to_F, F_to_C), alab="Temperature (°F)")
+    sp12_bottom.ax.set_title("Secondary Xaxis (Scale Conv.)")
+    
+    fig12.savefig("images/example12_twin_axes.png", dpi=300, bbox_inches='tight')
+    plt.close(fig12)
+
+    # ==========================
+    # 🌟 NEW 13. 隙間なしグリッド (Flush Grid) 🌟
+    # ==========================
+    # flush=True を指定するだけで wspace=0, hspace=0 と sharex/y が適用されます
+    fig13, sp_arr13 = create_symple_plots(3, 3, figsize=(6, 6), flush=True)
+    x13 = np.linspace(-6, 6, 20)
+    
+    for i in range(3):      # 行
+        for j in range(3):  # 列
+            idx = i * 3 + j
+            y13 = np.sin(x13) * (3 - i) + 5
+            
+            # 左端と下端のパネルのみに軸ラベルを設定するロジック
+            is_left = (j == 0)
+            is_bottom = (i == 2)
+            alab_x = "x-label" if is_bottom else ""
+            alab_y = "y-label" if is_left else ""
+            
+            sp = sp_arr13[idx]
+            sp.plot(x13, y13, marker='.', markersize=8, alab=[alab_x, alab_y])
+            
+            # (行, 列) のテキストを左上に赤文字で追加
+            sp.ax.text(0.05, 0.95, f"({i},{j})", transform=sp.ax.transAxes, 
+                       color='red', fontsize=12, va='top', ha='left')
+
+    fig13.savefig("images/example13_flush_grid.png", dpi=300, bbox_inches='tight')
+    plt.close(fig13)
+
     set_style('default')
-    print("\n✅ All example images generated (including Inline Comparison).")
-    
+    print("\n✅ All example images generated (including Twin Axes & Shared Grid).")
 
 if __name__ == "__main__":
     main()

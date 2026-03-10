@@ -65,3 +65,33 @@ def get_xrange(x, y, ymin, ymax):
     x_val, y_val = x[mask], y[mask]
     mask_y = (y_val >= ymin) & (y_val <= ymax)
     return x_val[mask_y], y_val[mask_y]
+
+def sigmoid(x):
+    return 1 / (1 + np.exp(-x))
+
+def remove_background(signal, fc=0.1, d=1, r=6, amp=0.8, Nit=15, pen='L1_v2', xscale_l=10, xscale_r=10, dx=0.5):
+    """
+    pybeadsを用いたベースライン補正（バックグラウンド除去）
+    """
+    try:
+        import pybeads
+    except ImportError:
+        raise ImportError("pybeads is required for remove_background. Please install it using 'pip install pybeads'.")
+        
+    d = 1
+    r = 6
+    amp = 0.8
+    lam0, lam1, lam2 = 0.5*amp, 5*amp, 4*amp
+    Nit = 15
+    pen = 'L1_v2'
+    
+    xscale_l, xscale_r = 10, 10
+    dx = 0.5
+    y_difficult_l = signal[0] * sigmoid(1/xscale_l * np.arange(-5*xscale_l, 5*xscale_l, dx))
+    y_difficult_r = signal[-1] * sigmoid(-1/xscale_r * np.arange(-5*xscale_r, 5*xscale_r, dx))
+    y_difficult_ext = np.hstack([y_difficult_l, signal, y_difficult_r])
+    len_l, len_o, len_r = len(y_difficult_l), len(signal), len(y_difficult_r)
+    
+    signal_est, bg_est, cost = pybeads.beads(y_difficult_ext, d, fc, r, Nit, lam0, lam1, lam2, pen, conv=None)
+    
+    return signal_est[len_l:len_l+len_o]

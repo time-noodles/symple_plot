@@ -7,7 +7,8 @@
 
 * **Auto Smart Formatter**: 軸のスケールを自動解析し、`5.0 × 10^4` のような美しい科学的記数法に自動フォーマットします。複数のデータ間で指数も統一されます。
 * **Inset Zoom (自動拡大図)**: 範囲 (`xlim` または `ylim`) を指定するだけで、データの該当部分を自動探索し、小窓（Inset）として拡大描画します。
-* **GrADS & Perceptually Uniform Colormaps**: 気象学で人気のGrADSカラーマップを標準搭載。他にも `turbo`, `plasma` などの知覚的均等カラーマップを視認性の高い範囲に絞って適用します。
+* **重ね描きへの完全対応**: `sp.plot` を複数回呼び出しても、すべてのプロット要素が枠内に収まるよう自動的に軸範囲が拡張・調整されます。
+* **GrADS & Perceptually Uniform Colormaps**: 気象学で人気のGrADSカラーマップ (`get_grads_cmap`) を標準搭載。他にも `turbo`, `plasma` などの知覚的均等カラーマップを視認性の高い範囲に絞って適用します。
 * **高度な回帰分析 (Optuna搭載)**: 任意の次数の多項式回帰や、ユーザー定義関数による`非線形フィッティング`を自動実行します。`SciPy`の差分進化法（`Differential Evolution`）を用いた大域的最適化による初期値(`p0`)の自動探索にも対応しており、複雑な物理モデルでも局所解を回避します。
 * **ワンライナー設定**: 軸ラベル、凡例、対数軸、範囲、垂直/水平の補助線(`vx`, `hy`)、アスペクト比などを1行の引数で完結させます。
 
@@ -20,6 +21,7 @@ GitHubから直接インストールできます。
 ```bash
 pip install git+https://github.com/time-noodles/symple_plot.git
 ```
+※ `remove_background` などの一部の解析ユーティリティを使用する場合は `pip install pybeads` も合わせて実行してください。
 
 ## 🚀 基本的な使い方 (Basic Usage)
 
@@ -127,7 +129,7 @@ sp_arr[1].ax.set_title("logy=True")
 ![対数軸](images/example3_log.png)
 
 ### 4. 目盛り数値の非表示 (`nox`, `noy`)
-目盛りや枠線は残したまま、数値ラベルだけを消したい場合は `nox=True` または `noy=True` を指定します。
+目盛りや枠線は残したまま、数値ラベルだけを消したい場合は `nox=True` または `noy=True` （`nonx`, `nony` でも可）を指定します。
 
 ```python
 import numpy as np
@@ -187,7 +189,7 @@ sp_arr[2].ax.set_title("3. add_inset_zoom()")
 
 ### 6. 個別カラー指定と強制ズーム (Custom Color & Auto Zoom)
 
-`col` 引数で特定のプロットだけ色を変更したり、`zoom` 引数を使って「後から追加したデータ」の範囲にグラフ全体をピタッとフォーカスさせることができます。
+`col` 引数で特定のプロットだけ色を変更したり、`zoom` 引数を使って「直近で追加したデータ」の範囲にグラフ全体をピタッとフォーカスさせることができます。複数回 `sp.plot()` を呼び出した場合も、`zoom` を指定しない限りすべてのデータが枠に収まるように自動拡張されます。
 
 ```python
 import numpy as np
@@ -303,7 +305,6 @@ sp_arr[1].scatter(x, x**3, alab=["Time", "Value"], size=80, marker='s', lab="Qua
 ### 10. インラインラベル (Inline Labels)
 
 データの右端または左端に直接凡例テキストを配置する「インラインラベル」に対応しています。`loc='inline'` を指定すると、データの間隔が広い（文字が被りにくい）方を自動で判定し、プロットと同じ色でラベルを描画します。
-ラベルが被る場合は、`inline_dy` と `inline_fs` を用いて位置やサイズを微調整できます。
 
 ```python
 import numpy as np
@@ -327,6 +328,94 @@ sp_arr[1].plot([x, x], [y1, y2], alab=["Time", "Yield"], lab=["Strain A", "Strai
 **▼ 出力例:**
 ![インラインラベル](images/example10_inline.png)
 
+### 11. グリッドプロットと軸の共有 (`sharex`, `sharey`)
+
+複数パネル間で軸を共有したい場合、`create_symple_plots` に `sharex=True` や `sharey=True` を渡すことで、内部の目盛りラベルが整理された美しいグリッドプロットを作成できます。
+
+```python
+import numpy as np
+from symple_plot import create_symple_plots
+
+# sharex=True, sharey=True で内側の軸ラベルを省略して共通化
+fig, sp_arr = create_symple_plots(2, 2, figsize=(10, 8), sharex=True, sharey=True)
+
+x = np.linspace(0, 10, 100)
+for i in range(4):
+    freq = i + 1
+    sp_arr[i].plot(x, np.sin(freq * x), col='blue', alab=["Time (s)", "Signal"] if i >= 2 else ["", "Signal"])
+```
+
+**▼ 出力例:**
+![軸の共有](images/example11_shared_axes.png)
+
+### 12. 第二軸とスケール変換 (Twin Axes & Secondary Axes)
+
+スケールの異なる2つのデータを重ねたり、摂氏と華氏のように単位を変換して表示するための第二軸 (`twinx`, `secondary_xaxis` など) を簡単に生成できます。
+
+```python
+import numpy as np
+from symple_plot import create_symple_plots
+
+fig, sp_arr = create_symple_plots(1, 2, figsize=(14, 5))
+
+# --- パネル1: 第二Y軸 (Twin Axes) ---
+sp1_left = sp_arr[0]
+x = np.linspace(0.1, 10, 50)
+
+# 左軸: 線形データ
+sp1_left.plot(x, x**2, col='blue', alab=["Time (s)", "Linear Scale"])
+
+# 右軸: 指数データ (twinx を使用)
+sp1_right = sp1_left.twinx(col='red', alab="Log Scale")
+sp1_right.plot(x, np.exp(x), logy=True)
+
+# --- パネル2: スケール変換用の第二X軸 (Secondary Axes) ---
+sp2_bottom = sp_arr[1]
+T_celsius = np.linspace(0, 100, 50)
+sp2_bottom.plot(T_celsius, np.sqrt(T_celsius), alab=["Temperature (°C)", "Value"])
+
+# 上軸: 華氏への変換関数を渡す
+def C_to_F(c): return c * 1.8 + 32
+def F_to_C(f): return (f - 32) / 1.8
+
+sp2_bottom.secondary_xaxis(location='top', functions=(C_to_F, F_to_C), alab="Temperature (°F)")
+```
+
+**▼ 出力例:**
+![第二軸](images/example12_twin_axes.png)
+
+### 13. 隙間なしグリッド (Flush Grid)
+
+`create_symple_plots` に `flush=True` を渡すだけで、パネル間の隙間 (`wspace`, `hspace`) をゼロにし、内側の軸ラベルを自動で非表示にした美しいマトリックスプロット（共有グリッド）を作成できます。
+
+```python
+import numpy as np
+from symple_plot import create_symple_plots
+
+# flush=True を指定するだけで隙間なしの3x3グリッドを作成
+fig, sp_arr = create_symple_plots(3, 3, figsize=(6, 6), flush=True)
+x = np.linspace(-6, 6, 20)
+
+for i in range(3):      # 行
+    for j in range(3):  # 列
+        idx = i * 3 + j
+        y = np.sin(x) * (3 - i) + 5
+        
+        # 左端と下端のパネルのみに軸ラベルを設定
+        alab_x = "x-label" if i == 2 else ""
+        alab_y = "y-label" if j == 0 else ""
+        
+        sp = sp_arr[idx]
+        sp.plot(x, y, marker='.', markersize=8, alab=[alab_x, alab_y])
+        
+        # パネルのインデックスを左上に配置
+        sp.ax.text(0.05, 0.95, f"({i},{j})", transform=sp.ax.transAxes, 
+                   color='red', fontsize=12, va='top', ha='left')
+```
+
+**▼ 出力例:**
+![隙間なし](images/example13_flush_grid.png)
+
 ---
 
 ## ⚙️ パラメータ一覧 (Kwargs Reference)
@@ -339,35 +428,32 @@ sp_arr[1].plot([x, x], [y1, y2], alab=["Time", "Yield"], lab=["Strain A", "Strai
 | --- | --- | --- |
 | `style` | str | `'paper'` または `'slide'` で描画スタイルを一括適用 |
 | `auto_label`| bool | `True`で各パネルの左上に (a), (b)... と自動でラベルを付与 |
+| `sharex`/`sharey`| bool | グリッドプロット時にX軸やY軸を共有し、内側のラベルを省略する |
+| `flush` | bool | `True`にするとパネル間の隙間をゼロにし、完全な共有グリッドを作成する |
 
 ### 2. 各種描画メソッドの引数 (plot, scatter, imshow, tdscatter 等)
 
 | 引数名 | 型 | 説明 |
 | --- | --- | --- |
 | `aspect` | float | グラフのアスペクト比を指定（例: 1.0で正方形、0.5で横長） |
-| `alab` | list | 軸ラベルを指定 `[xlabel, ylabel, (zlabel)]` |
+| `alab` | list/str | 軸ラベルを指定 `[xlabel, ylabel, (zlabel)]` (twinx等ではstrで指定) |
 | `lab` | list/str | 凡例のテキスト |
-| `loc` | str | 凡例の配置。`'inline'` で線の端に直接配置（`'inline_right'`, `'inline_left'` で強制指定可） |
-| `inline_dy` | float/list| [インラインラベル] 各ラベルのY座標のオフセット（例: `[0.1, -0.1]`） |
-| `inline_pad`| float | [インラインラベル] ラベル描画のためにX軸を拡張する割合（デフォルト: 0.05 = 5%）|
+| `loc` | str | 凡例の配置。`'inline'` で線の端に直接配置 |
+| `inline_dy` | float/list| [インラインラベル] 各ラベルのY座標のオフセット |
+| `inline_pad`| float | [インラインラベル] ラベル描画のためにX軸を拡張する割合 |
 | `lab_fs` | int | 凡例およびインラインラベルのフォントサイズ |
 | `axilab` | int | 軸ラベル (xlabel, ylabel) のフォントサイズ |
 | `axinum` | int | 軸の目盛り数値のフォントサイズ |
 | `margin` | float | 自動スケーリング時の余白割合 (デフォルト: 0.05) |
 | `cx` / `cy` | list | 軸の描画範囲を固定 `[min, max]` |
 | `logx` / `logy` | bool | 軸を対数スケールにする |
-| `nox` / `noy` | bool | 軸の目盛りラベルのみを非表示にする |
-| `zoom` | str | 今回渡したデータ範囲に枠を強制拡大 ('x', 'y', 'xy') |
+| `nox` / `noy` | bool | 軸の目盛りラベルのみを非表示にする (nonx, nony も可) |
+| `zoom` | str | 直近で渡したデータ範囲に枠を強制拡大 ('x', 'y', 'xy') |
 | `zoomx` / `zoomy` | list | 指定範囲 `[min, max]` の拡大図（Inset Zoom小窓）を生成 |
 | `col` | str/list | プロットの色を指定 ('red', 'plasma', 'mode1' 等) |
 | `vx` / `hy` | list/float | 垂直線(x) / 水平線(y) を引く座標 |
 | `vcol` / `hcol` | str | 垂直/水平線の色 (デフォルト: 'gray') |
 | `vstyle` / `hstyle` | str | 垂直/水平線のスタイル (デフォルト: '--') |
-| `marker` / `size` | - | [scatter等] マーカー形状とサイズ |
-| `linestyle` / `linewidth` | - | [plot等] 線の種類と太さ |
-| `auto_p0` | bool | [Regression] Trueにすると、Optunaで非線形フィッティングの初期値を自動探索する |
-| `n_trials`| int  | [Regression] `auto_p0=True` の際のOptuna探索回数（デフォルト: 100） |
-| `p0` / `bounds`| - | [Regression] 非線形フィッティングの初期推測値 / 探索範囲 |
 
 ---
 

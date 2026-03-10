@@ -6,7 +6,7 @@
 ## 📥 インポート方法
 
 ```python
-from symple_plot import valid_xy, get_yrange, get_xrange, pad_list, straighten_path, del_file, auto_curve_fit, reg_n
+from symple_plot import valid_xy, get_yrange, get_xrange, pad_list, remove_background, straighten_path, del_file, auto_curve_fit, reg_n
 ```
 
 ---
@@ -99,11 +99,11 @@ print(f"Deleted directory: {test_dir}")
 
 ---
 
-## 3. 解析・最適化ツール (`fit_utils.py`)
+## 3. 解析・最適化ツール (`fit_utils.py` / `data_utils.py`)
 
 ### `auto_curve_fit(f, xdata, ydata)`
 `f`に整数を渡すと多項式回帰を行い、関数を渡すと非線形フィッティングを行います。
-`auto_p0=True`を指定すると、**SciPyの差分進化法（Differential Evolution）**を用いて高速にパラメータの大域探索を行い、最適な初期値（`p0`）を自動で決定してから局所最適化を実行します。
+`auto_p0=True`を指定すると、**SciPyの差分進化法（Differential Evolution）**を用いて高速にパラメータの大域探索を行い、最適な初期値を自動で決定してから局所最適化を実行します。
 
 通常の`curve_fit`は初期値が与えられないと全て `1.0`で計算を開始します。そのため、振動成分が強い物理モデルや、正解のピーク位置が遠く離れている関数では、確実に局所解（ローカルミニマム）に陥りフィッティングに失敗します。差分進化法を用いた大域探索は、このような荒れた解空間を持つモデルのフィッティングを一発で解決します。
 
@@ -155,4 +155,30 @@ print("Fitted Coefficients:", np.round(fit_coef, 2))
 # 係数から予測値 (y_pred) を計算
 y_pred = reg_n(fit_coef, x)
 print("First 5 Predicted Y values:", np.round(y_pred[:5], 2))
+```
+
+### `remove_background(signal, fc=0.1)` (New!)
+`pybeads` パッケージを利用して、シグナルデータからベースライン（バックグラウンド）成分を高精度に除去・補正します。端点での発散を防ぐためのシグモイド関数によるパディング処理が組み込まれています。
+
+※ この機能を使用するには `pip install pybeads` が必要です。
+
+**▶ 実行して試せるコード:**
+```python
+import numpy as np
+import matplotlib.pyplot as plt
+from symple_plot import remove_background
+
+# シグナル + ドリフトするバックグラウンドを作成
+x = np.linspace(0, 10, 200)
+signal_true = np.exp(-((x - 5)**2) / 0.1)  # 鋭いピーク
+bg_drift = 0.5 * np.sin(x * 0.5) + 0.1 * x   # うねるベースライン
+y_raw = signal_true + bg_drift
+
+# pybeadsによるバックグラウンド除去 (fcでカットオフ周波数を調整)
+y_clean = remove_background(y_raw, fc=0.05)
+
+plt.plot(x, y_raw, label="Raw Data (with Background)")
+plt.plot(x, y_clean, label="Cleaned Signal")
+plt.legend()
+plt.show()
 ```

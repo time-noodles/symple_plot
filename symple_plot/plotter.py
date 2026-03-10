@@ -94,38 +94,45 @@ def alpha_calc(N, num):
     N -= 1
     return 1 if N == 0 else (num / N * 0.75 + 0.25)
 
-# 🌟 自動化対応版 create_symple_plots 🌟
-def create_symple_plots(nrows=1, ncols=1, figsize=None, style=None, auto_label=False, **kwargs):
+def create_symple_plots(nrows=1, ncols=1, figsize=None, style=None, auto_label=False, flush=False, **kwargs):
     """
     グラフ枠を生成します。
-    style: 'paper', 'slide', 'default' を指定するとスタイルが一括適用されます。
-    auto_label: Trueにすると、各パネルの左上に (a), (b)... と自動でラベルを振ります。
-    ※複数パネルの場合、戻り値のオブジェクト群は常に1次元配列として返されます。
+    flush=True にすると、隙間のない結合グリッド（共有軸）を作成します。
     """
     if style:
         set_style(style)
 
     if figsize is None: figsize = (7*ncols+(ncols-1),5*nrows+(ncols-1)*2)
+    
+    # 🌟 隙間なしグリッド機能 (flush=True) 🌟
+    if flush:
+        if 'gridspec_kw' not in kwargs:
+            kwargs['gridspec_kw'] = {}
+        kwargs['gridspec_kw'].setdefault('wspace', 0)
+        kwargs['gridspec_kw'].setdefault('hspace', 0)
+        kwargs.setdefault('sharex', True)
+        kwargs.setdefault('sharey', True)
+
     fig, axes = plt.subplots(nrows, ncols, figsize=figsize, **kwargs)
     
-    # グラフオブジェクトの生成
     if nrows == 1 and ncols == 1:
-        # 1x1の場合はそのまま返す（後方互換性）
         ret_arr = symple_plot(axes)
         flat_sps = [ret_arr]
     elif axes.ndim == 1:
-        # 1行複数列、または複数行1列の場合はそのまま1次元配列にする
         ret_arr = np.array([symple_plot(ax) for ax in axes])
         flat_sps = ret_arr
     else:
-        # 複数行・複数列の場合も、flatten()を使って1次元配列（[0], [1], [2]...）として返す
         flat_sps = np.array([symple_plot(ax) for ax in axes.flatten()])
         ret_arr = flat_sps
 
-    # 🌟 パネルラベルの全自動付与 🌟
+    # 🌟 flush=True の場合は、隙間を埋めるために強制的にアスペクト比固定を解除する
+    if flush:
+        for sp in flat_sps:
+            sp.aspect = 'auto'
+
     if auto_label:
         import string
-        alphabet = string.ascii_lowercase # a, b, c, d...
+        alphabet = string.ascii_lowercase
         for i, sp in enumerate(flat_sps):
             if i < len(alphabet):
                 sp.add_panel_label(f"({alphabet[i]})")
@@ -151,9 +158,6 @@ class symple_plot:
         self.current_xmin, self.current_xmax = None, None
         self.current_ymin, self.current_ymax = None, None
         self.current_zmin, self.current_zmax = None, None
-        
-        self.all_handles = []
-        self.all_labels = []
 
     def setxy(self, X, Y):
         X, Y = ensure_2d(X), ensure_2d(Y)
@@ -164,7 +168,6 @@ class symple_plot:
         self.X, self.Y, self.Z = pad_list(X), pad_list(Y), pad_list(Z)
 
     def col_c(self, **kwargs):
-        # 🌟 ここで kwargs から col を受け取るように一元化！
         if 'col' in kwargs:
             self.col = kwargs['col']
             
@@ -185,7 +188,6 @@ class symple_plot:
             self.COL = [self.col for _ in range(num_data)]
 
     def _apply_common_settings(self, **kwargs):
-        # 軸ラベル・目盛り数字のフォントサイズを上書き
         self.axilab = kwargs.get('axilab', self.axilab)
         self.axinum = kwargs.get('axinum', self.axinum)        
         margin = kwargs.get('margin', 0.05)
@@ -193,51 +195,56 @@ class symple_plot:
         is_logy = kwargs.get('logy', False)
         is_logz = kwargs.get('logz', False)
         
-        # 🌟 zoom引数を確実に文字列として評価し、バグを回避
         zoom_str = kwargs.get('zoom', '')
         if zoom_str is None: zoom_str = ''
         zoom_str = str(zoom_str).lower()
 
-        new_xmin, new_xmax = minmax(self.X, margin, is_log=is_logx)
-        new_ymin, new_ymax = minmax(self.Y, margin, is_log=is_logy)
+        # 🌟 全描画要素からデータ範囲を取得し、重ね描き時にすべてが収まるようにする
+        all_x, all_y = [], []
+        for line in self.ax.get_lines():
+            all_x.extend(line.get_xdata())
+            all_y.extend(line.get_ydata())
+        for coll in self.ax.collections:
+            import matplotlib.collections as mcoll
+            if isinstance(coll, mcoll.PathCollection):
+                offsets = coll.get_offsets()
+                if len(offsets) > 0:
+                    all_x.extend(offsets[:, 0])
+                    all_y.extend(offsets[:, 1])
+                    
+        all_x = np.array(all_x, dtype=float)
+        all_y = np.array(all_y, dtype=float)
+        mask = ~np.isnan(all_x) & ~np.isnan(all_y)
+        all_x, all_y = all_x[mask], all_y[mask]
+        
+        if len(all_x) == 0:
+            all_x = np.concatenate([np.ravel(v) for v in self.X]) if len(self.X) > 0 else np.array([])
+            all_y = np.concatenate([np.ravel(v) for v in self.Y]) if len(self.Y) > 0 else np.array([])
+
+        new_xmin, new_xmax = minmax([all_x], margin, is_log=is_logx)
+        new_ymin, new_ymax = minmax([all_y], margin, is_log=is_logy)
 
         cx = kwargs.get('cx')
         cy = kwargs.get('cy')
 
-        # 🌟 配列を返す仕様に変更した get_yrange に合わせた修正
         if cx and not cy:
-            y_bounds = []
-            for x_arr, y_arr in zip(self.X, self.Y):
-                # 返り値は (xの配列, yの配列) なので、yの配列だけ受け取る
-                _, y_fil = get_yrange(x_arr, y_arr, cx[0], cx[1])
-                if len(y_fil) > 0: 
-                    y_bounds.append([np.min(y_fil), np.max(y_fil)])
-            if y_bounds: 
-                new_ymin, new_ymax = minmax(y_bounds, margin, is_log=is_logy)
+            _, y_fil = get_yrange(all_x, all_y, cx[0], cx[1])
+            if len(y_fil) > 0: 
+                new_ymin, new_ymax = minmax([y_fil], margin, is_log=is_logy)
             
-        # 🌟 配列を返す仕様に変更した get_xrange に合わせた修正
         if cy and not cx:
-            x_bounds = []
-            for x_arr, y_arr in zip(self.X, self.Y):
-                # 返り値は (xの配列, yの配列) なので、xの配列だけ受け取る
-                x_fil, _ = get_xrange(x_arr, y_arr, cy[0], cy[1])
-                if len(x_fil) > 0: 
-                    x_bounds.append([np.min(x_fil), np.max(x_fil)])
-            if x_bounds: 
-                new_xmin, new_xmax = minmax(x_bounds, margin, is_log=is_logx)
+            x_fil, _ = get_xrange(all_x, all_y, cy[0], cy[1])
+            if len(x_fil) > 0: 
+                new_xmin, new_xmax = minmax([x_fil], margin, is_log=is_logx)
 
-        # 🌟 zoom機能: 'x' や 'y' が明確に含まれていれば強制上書き
-        if self.current_xmin is None or 'x' in zoom_str:
-            self.current_xmin, self.current_xmax = new_xmin, new_xmax
-        else:
-            self.current_xmin = min(self.current_xmin, new_xmin)
-            self.current_xmax = max(self.current_xmax, new_xmax)
+        # zoom引数で 'x' や 'y' が指定された場合のみ、今回渡されたデータ範囲にフォーカス
+        if 'x' in zoom_str:
+            new_xmin, new_xmax = minmax(self.X, margin, is_log=is_logx)
+        if 'y' in zoom_str:
+            new_ymin, new_ymax = minmax(self.Y, margin, is_log=is_logy)
 
-        if self.current_ymin is None or 'y' in zoom_str:
-            self.current_ymin, self.current_ymax = new_ymin, new_ymax
-        else:
-            self.current_ymin = min(self.current_ymin, new_ymin)
-            self.current_ymax = max(self.current_ymax, new_ymax)
+        self.current_xmin, self.current_xmax = new_xmin, new_xmax
+        self.current_ymin, self.current_ymax = new_ymin, new_ymax
 
         if cx: self.current_xmin, self.current_xmax = cx[0], cx[1]
         if cy: self.current_ymin, self.current_ymax = cy[0], cy[1]
@@ -265,22 +272,19 @@ class symple_plot:
         if not is_logx: self.ax.xaxis.set_major_formatter(AutoSmartFormatter())
         if not is_logy: self.ax.yaxis.set_major_formatter(AutoSmartFormatter())
         
-        self.ax.tick_params(which='major', labelsize=self.axinum) # axinumを適用
-        # 🌟 論文仕様: 内向き・四方・マイナー目盛りのデフォルト化 🌟
+        self.ax.tick_params(which='major', labelsize=self.axinum)
+        
         if not is_3d:
-            self.ax.minorticks_on() # 補助目盛りをON
-            # 主目盛り (長く、数字あり)
+            self.ax.minorticks_on()
             self.ax.tick_params(which='major', direction='in', length=self.tlength, 
                                 top=True, bottom=True, left=True, right=True, labelsize=self.axinum)
-            # 補助目盛り (短く、数字なし)
             self.ax.tick_params(which='minor', direction='in', length=self.tlength * 0.5, 
                                 top=True, bottom=True, left=True, right=True)
         else:
-            # 3Dグラフは四方囲みができないため、通常設定
             self.ax.tick_params(axis='both', labelsize=self.axinum, length=self.tlength)
 
-        if kwargs.get('nox', False): self.ax.tick_params(labelbottom=False)
-        if kwargs.get('noy', False): self.ax.tick_params(labelleft=False)
+        if kwargs.get('nox', False) or kwargs.get('nonx', False): self.ax.tick_params(labelbottom=False)
+        if kwargs.get('noy', False) or kwargs.get('nony', False): self.ax.tick_params(labelleft=False)
 
         if alab := kwargs.get('alab'):
             self.ax.set_xlabel(alab[0], fontsize=self.axilab)
@@ -290,13 +294,11 @@ class symple_plot:
         if lab := kwargs.get('lab'):
             if not isinstance(lab, list): lab = [lab]
             loc = kwargs.get('loc', 'upper left')
-            lab_fs = kwargs.get('lab_fs', self.axinum)  # 凡例サイズを統合
+            lab_fs = kwargs.get('lab_fs', self.axinum)
             
-            # --- インラインラベル・モード ---
             if isinstance(loc, str) and loc.startswith('inline'):
                 align = loc.split('_')[1] if '_' in loc else 'auto'
                 
-                # auto判定 (左右の間隔比較)
                 left_ys, right_ys = [], []
                 for x_arr, y_arr in zip(self.X, self.Y):
                     vx, vy = valid_xy(x_arr, y_arr)
@@ -313,16 +315,11 @@ class symple_plot:
                         return np.min(np.diff(np.sort(arr)))
                     align = 'right' if min_dist(r_val) >= min_dist(l_val) else 'left'
 
-                # 各種オフセット設定
                 inline_dy = kwargs.get('inline_dy', 0)
                 if not isinstance(inline_dy, (list, tuple, np.ndarray)):
                     inline_dy = [inline_dy] * len(self.X)
                 
-                # パディング調整 (軸と重ならないよう広めに取る)
-                inline_pad = kwargs.get('inline_pad', 0.12) 
                 x_range = self.current_xmax - self.current_xmin
-                # Xのオフセット設定: 末端(vx[-1])から少し内側に潜り込ませる
-                # x_rangeの0.5%程度を内側にオフセット
                 x_in_offset = x_range * 0.005 
 
                 for i, (x_arr, y_arr) in enumerate(zip(self.X, self.Y)):
@@ -333,50 +330,38 @@ class symple_plot:
                     dy = inline_dy[i % len(inline_dy)]
                     
                     if align == 'right':
-                        # xmaxよりも少し小さい値(左側)に配置
                         x_pos = vx[-1] - x_in_offset
-                        ha = 'right' # 右揃えにすることで、文字の末尾が末端に近づく
+                        ha = 'right'
                     else:
-                        # xminよりも少し大きい値(右側)に配置
                         x_pos = vx[0] + x_in_offset
-                        ha = 'left' # 左揃え
+                        ha = 'left'
                         
                     color = self.COL[i] if i < len(self.COL) else 'black'
                     
-                    # fontweight='bold' で視認性を確保
                     self.ax.text(x_pos, vy[-1 if align=='right' else 0] + dy, 
                                  lab[i], color=color, ha=ha, va='center', 
                                  fontsize=lab_fs, fontweight='bold')
                 
-                # 軸範囲の拡張は最小限(5%程度)に留め、潜り込みを際立たせる
                 inline_pad = kwargs.get('inline_pad', 0.05)
                 if align == 'right':
                     self.ax.set_xlim(self.current_xmin, self.current_xmax + x_range * inline_pad)
                 elif align == 'left':
                     self.ax.set_xlim(self.current_xmin - x_range * inline_pad, self.current_xmax)
             
-            # --- 通常の凡例モード (locがinlineでない場合のみ実行) ---
             else:
                 if len(self.sca) > 0:
-                    # 警告回避のため、ハンドルとラベルを明示的に渡す
                     self.ax.legend(self.sca, lab, bbox_to_anchor=(1.01, 1), 
                                    loc=loc, frameon=False, fontsize=lab_fs)
 
-        # 🌟 アスペクト比の動的変更 (aspect引数対応) 🌟
         if 'aspect' in kwargs:
             self.aspect = kwargs['aspect']
             
         if not is_3d:
             if isinstance(self.aspect, str): 
-                # 'equal' や 'auto' などの文字列が渡された場合
                 self.ax.set_aspect(self.aspect)
             else:
-                # 数値が渡された場合は、データ範囲との比率を計算して枠の縦横比を固定
                 self.ax.set_aspect(self.aspect / self.ax.get_data_ratio(), adjustable="box")
                 
-        # ==========================================
-        # 🌟 垂直線 (vx) と 水平線 (hy) の描画 🌟
-        # ==========================================
         if 'vx' in kwargs:
             vx_list = kwargs['vx'] if isinstance(kwargs['vx'], (list, tuple, np.ndarray)) else [kwargs['vx']]
             vcol = kwargs.get('vcol', 'gray')
@@ -393,21 +378,21 @@ class symple_plot:
             for h in hy_list:
                 self.ax.axhline(y=h, color=hcol, linestyle=hstyle, linewidth=hwidth, zorder=0)
 
-        self.ax.figure.tight_layout()
-        
-        # (後略... zoomx, zoomyの処理)
+        try:
+            self.ax.figure.tight_layout()
+        except RuntimeError as e:
+            if "Adjustable 'box'" in str(e) or "twinned Axes" in str(e):
+                for a in self.ax.figure.axes:
+                    a.set_aspect('auto')
+                self.ax.figure.tight_layout()
+            else:
+                raise e
 
-        self.ax.figure.tight_layout()
-
-        # 🌟 zoomx, zoomy で自動的に add_inset_zoom を呼び出す機能
         zoomx = kwargs.get('zoomx')
         zoomy = kwargs.get('zoomy')
         if zoomx is not None or zoomy is not None:
-            self.add_inset_zoom(xlim=zoomx, ylim=zoomy)
+            self.add_inset_zoom(xlim=zoomx, ylim=zoomy, draw_lines=False)
 
-    # ---------------------------------------------------------
-    # 各種描画メソッド群
-    # ---------------------------------------------------------
     def pre_set(self, X, Y, **kwargs):
         self.setxy(X, Y)
         self.sca = []
@@ -450,13 +435,12 @@ class symple_plot:
         p0 = kwargs.get('p0', None)
         bounds = kwargs.get('bounds', (-np.inf, np.inf))
         auto_p0 = kwargs.get('auto_p0', False)
-        n_trials = kwargs.get('n_trials', 100) # 🌟 Optuna 用の反復回数
+        n_trials = kwargs.get('n_trials', 100)
 
         for i, (x, y) in enumerate(zip(self.X, self.Y)):
             vx_, vy_ = valid_xy(x, y)
             if len(vx_) < 2: continue
             
-            # 関数が渡された場合（外出しした auto_curve_fit を使用）
             if callable(regr):
                 try:
                     popt, pcov = auto_curve_fit(regr, vx_, vy_, p0=p0, bounds=bounds, 
@@ -472,7 +456,6 @@ class symple_plot:
                 except Exception as e:
                     print(f"Curve fit failed for Data_{i}: {e}")
                     
-            # 整数（多項式）の場合
             elif isinstance(regr, int):
                 if len(vx_) <= regr: continue
                 fit, cov = np.polyfit(vx_, vy_, regr, cov=True)
@@ -543,8 +526,8 @@ class symple_plot:
             if kwargs.get('logy', False): self.ax.set_yscale('log')
             else: self.ax.yaxis.set_major_formatter(AutoSmartFormatter())
         
-        if kwargs.get('nox', False): self.ax.tick_params(labelbottom=False)
-        if kwargs.get('noy', False): self.ax.tick_params(labelleft=False)
+        if kwargs.get('nox', False) or kwargs.get('nonx', False): self.ax.tick_params(labelbottom=False)
+        if kwargs.get('noy', False) or kwargs.get('nony', False): self.ax.tick_params(labelleft=False)
 
         divider = mpl_toolkits.axes_grid1.make_axes_locatable(self.ax)
         cax = divider.append_axes('right', size='5%', pad='3%')
@@ -565,13 +548,7 @@ class symple_plot:
         self.ax.figure.tight_layout()
         return self.ax, self.im
 
-    # ==========================================
-    # 🌟 パネルラベル自動付与 (a), (b) 🌟
-    # ==========================================
     def add_panel_label(self, text, x=-0.15, y=1.05, fontsize=None, weight='bold'):
-        """
-        論文用のパネルラベル (a), (b) などを自動配置します。
-        """
         if fontsize is None:
             fontsize = self.axilab + 2
             
@@ -580,15 +557,7 @@ class symple_plot:
                      va='bottom', ha='right')
         return self.ax
 
-# ==========================================
-    # 🌟 INSET ZOOM (自動探索拡大図 - 絶妙バランス・最大化・全自動対応版) 🌟
-    # ==========================================
-    def add_inset_zoom(self, xlim=None, ylim=None, bounds='auto', margin=0.02, draw_lines=True):
-        """
-        xlimまたはylimを与えると、プロット済みの全データから該当範囲を自動探索し、
-        inset_axes（拡大図）を作成して元のグラフと枠線で結びます。
-        xlimとylimの両方が与えられた場合（zoomx, zoomyなど）は、そのままその範囲を描画します。
-        """
+    def add_inset_zoom(self, xlim=None, ylim=None, bounds='auto', margin=0.02, draw_lines=False):
         all_x, all_y = [], []
         for line in self.ax.get_lines():
             all_x.extend(line.get_xdata())
@@ -608,10 +577,7 @@ class symple_plot:
         is_logx = self.ax.get_xscale() == 'log'
         is_logy = self.ax.get_yscale() == 'log'
 
-        # 🌟 add_inset_zoom 内の xlim, ylim 計算部分の修正 🌟
-        
         if xlim is not None and ylim is None:
-            # 返り値 (xの配列, yの配列) のうち、yの配列(y_fil)のみを使用
             _, y_fil = get_yrange(all_x, all_y, xlim[0], xlim[1])
             if len(y_fil) > 0:
                 y_min, y_max = np.min(y_fil), np.max(y_fil)
@@ -626,7 +592,6 @@ class symple_plot:
                 ylim = self.ax.get_ylim()
 
         elif ylim is not None and xlim is None:
-            # 返り値 (xの配列, yの配列) のうち、xの配列(x_fil)のみを使用
             x_fil, _ = get_xrange(all_x, all_y, ylim[0], ylim[1])
             if len(x_fil) > 0:
                 x_min, x_max = np.min(x_fil), np.max(x_fil)
@@ -641,7 +606,7 @@ class symple_plot:
                 xlim = self.ax.get_xlim()
                 
         elif xlim is not None and ylim is not None:
-            pass # 両方指定された場合は限界値として採用
+            pass 
             
         elif xlim is None and ylim is None:
             return None
@@ -671,7 +636,6 @@ class symple_plot:
                 in_plot = (ax_x >= 0) & (ax_x <= 1) & (ax_y >= 0) & (ax_y <= 1)
                 ax_x, ax_y = ax_x[in_plot], ax_y[in_plot]
                 
-                # サイズを45%に保ちつつ、衝突回避のため左と下だけ余白を0.12取る
                 sizes_to_try = [0.45, 0.40, 0.35, 0.30]
                 best_bound = None
                 fallback_bound = None
@@ -749,7 +713,6 @@ class symple_plot:
         if not is_logx: axins.xaxis.set_major_formatter(AutoSmartFormatter())
         if not is_logy: axins.yaxis.set_major_formatter(AutoSmartFormatter())
         
-        # 🌟 小窓も内向き・四方・マイナー目盛りに統一 🌟
         axins.minorticks_on()
         axins.tick_params(which='major', direction='in', length=self.tlength * 0.7, 
                           top=True, bottom=True, left=True, right=True, labelsize=self.axinum - 7)
@@ -760,3 +723,56 @@ class symple_plot:
             self.ax.indicate_inset_zoom(axins, edgecolor="black", alpha=0.5)
         
         return axins
+
+    # ==========================================
+    # 🌟 第二軸 (Twin Axes & Secondary Axes) 🌟
+    # ==========================================
+    def twinx(self, **kwargs):
+        """第二Y軸 (右側) を作成して symple_plot インスタンスを返す。"""
+        self.aspect = 'auto'            # 元の軸のアスペクト比を自動にする
+        self.ax.set_aspect('auto')
+        ax2 = self.ax.twinx()
+        sp2 = symple_plot(ax2)
+        sp2.aspect = 'auto'             # 追加する軸のアスペクト比も自動にする
+        
+        if alab := kwargs.get('alab'):
+            ax2.set_ylabel(alab, fontsize=self.axilab)
+        if col := kwargs.get('col'):
+            ax2.spines['right'].set_color(col)
+            ax2.tick_params(axis='y', colors=col)
+            ax2.yaxis.label.set_color(col)
+            sp2.col = col
+        return sp2
+
+    def twiny(self, **kwargs):
+        """第二X軸 (上側) を作成して symple_plot インスタンスを返す。"""
+        self.aspect = 'auto'
+        self.ax.set_aspect('auto')
+        ax2 = self.ax.twiny()
+        sp2 = symple_plot(ax2)
+        sp2.aspect = 'auto'
+        
+        if alab := kwargs.get('alab'):
+            ax2.set_xlabel(alab, fontsize=self.axilab)
+        if col := kwargs.get('col'):
+            ax2.spines['top'].set_color(col)
+            ax2.tick_params(axis='x', colors=col)
+            ax2.xaxis.label.set_color(col)
+            sp2.col = col
+        return sp2
+
+    def secondary_xaxis(self, functions, location='top', **kwargs):
+        """スケール変換用の第二X軸を作成する。functions=(forward_func, inverse_func) を渡す。"""
+        sec_ax = self.ax.secondary_xaxis(location, functions=functions)
+        if alab := kwargs.get('alab'):
+            sec_ax.set_xlabel(alab, fontsize=self.axilab)
+        sec_ax.tick_params(labelsize=self.axinum)
+        return sec_ax
+
+    def secondary_yaxis(self, functions, location='right', **kwargs):
+        """スケール変換用の第二Y軸を作成する。functions=(forward_func, inverse_func) を渡す。"""
+        sec_ax = self.ax.secondary_yaxis(location, functions=functions)
+        if alab := kwargs.get('alab'):
+            sec_ax.set_ylabel(alab, fontsize=self.axilab)
+        sec_ax.tick_params(labelsize=self.axinum)
+        return sec_ax
