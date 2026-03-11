@@ -102,16 +102,17 @@ def create_symple_plots(nrows=1, ncols=1, figsize=None, style=None, auto_label=F
     if style:
         set_style(style)
 
-    if figsize is None: figsize = (7*ncols+(ncols-1),5*nrows+(ncols-1)*2)
+    if figsize is None: figsize = (7*ncols+(ncols-1)*2,7*nrows+(nrows-1))
     
     # 🌟 隙間なしグリッド機能 (flush=True) 🌟
+    # True (全体共有) ではなく、'col' と 'row' で個別共有に変更
     if flush:
         if 'gridspec_kw' not in kwargs:
             kwargs['gridspec_kw'] = {}
         kwargs['gridspec_kw'].setdefault('wspace', 0)
         kwargs['gridspec_kw'].setdefault('hspace', 0)
-        kwargs.setdefault('sharex', True)
-        kwargs.setdefault('sharey', True)
+        kwargs.setdefault('sharex', 'col')  # 同じ列(縦並び)でX軸を共有
+        kwargs.setdefault('sharey', 'row')  # 同じ行(横並び)でY軸を共有
 
     fig, axes = plt.subplots(nrows, ncols, figsize=figsize, **kwargs)
     
