@@ -6,6 +6,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.ticker import Formatter
 from matplotlib.colors import LinearSegmentedColormap
+from matplotlib.axes import Axes
 from sklearn.metrics import r2_score
 import mpl_toolkits.axes_grid1
 
