@@ -146,8 +146,8 @@ def create_symple_plots(nrows=1, ncols=1, figsize=None, style=None, auto_label=F
 class symple_plot:
     def __init__(self, ax):
         self.ax = ax
-        self.axilab = 20
-        self.axinum = 17
+        self.alab_fs = 20  # 旧 alab_fs から変更 (Axis Label Font Size)
+        self.tick_fs = 17  # 旧 tick_fs から変更 (Tick Font Size)
         self.tlength = 5
         self.col = 'grads'
         self.aspect = 1
@@ -189,8 +189,8 @@ class symple_plot:
             self.COL = [self.col for _ in range(num_data)]
 
     def _apply_common_settings(self, **kwargs):
-        self.axilab = kwargs.get('axilab', self.axilab)
-        self.axinum = kwargs.get('axinum', self.axinum)        
+        self.alab_fs = kwargs.get('alab_fs', self.alab_fs)  # 変更
+        self.tick_fs = kwargs.get('tick_fs', self.tick_fs)  # 変更            
         margin = kwargs.get('margin', 0.05)
         is_logx = kwargs.get('logx', False)
         is_logy = kwargs.get('logy', False)
@@ -273,7 +273,7 @@ class symple_plot:
         if not is_logx: self.ax.xaxis.set_major_formatter(AutoSmartFormatter())
         if not is_logy: self.ax.yaxis.set_major_formatter(AutoSmartFormatter())
         
-        self.ax.tick_params(which='major', labelsize=self.axinum)
+        self.ax.tick_params(which='major', labelsize=self.tick_fs)
         
         if not is_3d:
             self.ax.minorticks_on()
@@ -284,24 +284,24 @@ class symple_plot:
             top_on = not getattr(self, 'hide_top_ticks', False)
 
             self.ax.tick_params(which='major', direction='in', length=self.tlength, 
-                                top=top_on, bottom=bottom_on, left=left_on, right=right_on, labelsize=self.axinum)
+                                top=top_on, bottom=bottom_on, left=left_on, right=right_on, labelsize=self.tick_fs)
             self.ax.tick_params(which='minor', direction='in', length=self.tlength * 0.5, 
                                 top=top_on, bottom=bottom_on, left=left_on, right=right_on)
         else:
-            self.ax.tick_params(axis='both', labelsize=self.axinum, length=self.tlength)
+            self.ax.tick_params(axis='both', labelsize=self.tick_fs, length=self.tlength)
 
         if kwargs.get('nox', False) or kwargs.get('nonx', False): self.ax.tick_params(labelbottom=False)
         if kwargs.get('noy', False) or kwargs.get('nony', False): self.ax.tick_params(labelleft=False)
 
         if alab := kwargs.get('alab'):
-            self.ax.set_xlabel(alab[0], fontsize=self.axilab)
-            self.ax.set_ylabel(alab[1], fontsize=self.axilab)
-            if is_3d and len(alab) > 2: self.ax.set_zlabel(alab[2], fontsize=self.axilab)
+            self.ax.set_xlabel(alab[0], fontsize=self.alab_fs)
+            self.ax.set_ylabel(alab[1], fontsize=self.alab_fs)
+            if is_3d and len(alab) > 2: self.ax.set_zlabel(alab[2], fontsize=self.alab_fs)
 
         if lab := kwargs.get('lab'):
             if not isinstance(lab, list): lab = [lab]
             loc = kwargs.get('loc', 'upper left')
-            lab_fs = kwargs.get('lab_fs', self.axinum)
+            lab_fs = kwargs.get('lab_fs', self.tick_fs)
             
             if isinstance(loc, str) and loc.startswith('inline'):
                 align = loc.split('_')[1] if '_' in loc else 'auto'
@@ -412,11 +412,33 @@ class symple_plot:
         marker_size = kwargs.get('size', 40)
         markers = kwargs.get('marker', ['o'])
         if not isinstance(markers, list): markers = [markers]
+        
+        # 中抜きオプションやfacecolorの設定を取得
+        hollow = kwargs.get('hollow', False)
+        fc = kwargs.get('facecolor', kwargs.get('facecolors', None))
+        lw = kwargs.get('linewidth', kwargs.get('linewidths', 1.5))
+        
+        # 🌟 forループの外で描画モードと塗りつぶし色を確定させる（高速化）
+        is_edge_mode = hollow or fc is not None
+        face_color_val = 'none' if hollow or fc == 'none' else fc
+        
         self.sca = []
-        for i, (x, y) in enumerate(zip(self.X, self.Y)):
-            m = markers[i % len(markers)]
-            scat = self.ax.scatter(x, y, color=self.COL[i], s=marker_size, marker=m)
-            self.sca.append(scat)
+        
+        if is_edge_mode:
+            # 中抜き、または任意の塗りつぶし色がある場合のループ
+            for i, (x, y) in enumerate(zip(self.X, self.Y)):
+                m = markers[i % len(markers)]
+                scat = self.ax.scatter(x, y, facecolors=face_color_val, edgecolors=self.COL[i], 
+                                       s=marker_size, marker=m, linewidths=lw)
+                self.sca.append(scat)
+        else:
+            # デフォルト（単色塗りつぶし）のループ
+            for i, (x, y) in enumerate(zip(self.X, self.Y)):
+                m = markers[i % len(markers)]
+                scat = self.ax.scatter(x, y, color=self.COL[i], 
+                                       s=marker_size, marker=m)
+                self.sca.append(scat)
+            
         self._apply_common_settings(**kwargs)
         return self.ax
 
@@ -539,7 +561,7 @@ class symple_plot:
         divider = mpl_toolkits.axes_grid1.make_axes_locatable(self.ax)
         cax = divider.append_axes('right', size='5%', pad='3%')
         cbar = self.ax.figure.colorbar(self.im, cax=cax)
-        cbar.ax.tick_params(labelsize=self.axinum)
+        cbar.ax.tick_params(labelsize=self.tick_fs)
         
         if kwargs.get('logz', False): 
             pass 
@@ -547,24 +569,27 @@ class symple_plot:
             cbar.ax.yaxis.set_major_formatter(AutoSmartFormatter())
         
         if alab := kwargs.get('alab'):
-            self.ax.set_xlabel(alab[0], fontsize=self.axilab)
-            self.ax.set_ylabel(alab[1], fontsize=self.axilab)
+            self.ax.set_xlabel(alab[0], fontsize=self.alab_fs)
+            self.ax.set_ylabel(alab[1], fontsize=self.alab_fs)
             if len(alab) > 2:
-                cbar.set_label(alab[2], fontsize=self.axilab)
+                cbar.set_label(alab[2], fontsize=self.alab_fs)
                 
         self.ax.figure.tight_layout()
         return self.ax, self.im
 
     def add_panel_label(self, text, x=-0.15, y=1.05, fontsize=None, weight='bold'):
         if fontsize is None:
-            fontsize = self.axilab + 2
+            fontsize = self.alab_fs + 2
             
         self.ax.text(x, y, text, transform=self.ax.transAxes, 
                      fontsize=fontsize, fontweight=weight, 
                      va='bottom', ha='right')
         return self.ax
 
-    def add_inset_zoom(self, xlim=None, ylim=None, bounds='auto', margin=0.02, draw_lines=False):
+    def add_inset_zoom(self, xlim=None, ylim=None, bounds='auto', margin=0.02, draw_lines=False, **kwargs):
+        if cx := kwargs.get('cx'): xlim = cx
+        if cy := kwargs.get('cy'): ylim = cy
+
         all_x, all_y = [], []
         for line in self.ax.get_lines():
             all_x.extend(line.get_xdata())
@@ -711,8 +736,8 @@ class symple_plot:
                     axins.scatter(offsets[:,0], offsets[:,1], color=coll.get_facecolors(), 
                                   s=coll.get_sizes(), alpha=coll.get_alpha())
 
-        if is_logx: axins.set_xscale('log')
-        if is_logy: axins.set_yscale('log')
+        is_logx = kwargs.get('logx', self.ax.get_xscale() == 'log')
+        is_logy = kwargs.get('logy', self.ax.get_yscale() == 'log')
         
         axins.set_xlim(xlim[0], xlim[1])
         axins.set_ylim(ylim[0], ylim[1])
@@ -721,10 +746,19 @@ class symple_plot:
         if not is_logy: axins.yaxis.set_major_formatter(AutoSmartFormatter())
         
         axins.minorticks_on()
+        
+        # 🌟 小窓独自のフォントサイズや、目盛り表示/非表示 (nox, noy) を適用
+        ins_tick_fs = kwargs.get('tick_fs', self.tick_fs - 7)
+        nox = kwargs.get('nox', False) or kwargs.get('nonx', False)
+        noy = kwargs.get('noy', False) or kwargs.get('nony', False)
+        
         axins.tick_params(which='major', direction='in', length=self.tlength * 0.7, 
-                          top=True, bottom=True, left=True, right=True, labelsize=self.axinum - 7)
+                          top=True, bottom=True, left=True, right=True, labelsize=ins_tick_fs)
         axins.tick_params(which='minor', direction='in', length=self.tlength * 0.35, 
                           top=True, bottom=True, left=True, right=True)
+
+        if nox: axins.tick_params(labelbottom=False)
+        if noy: axins.tick_params(labelleft=False)
 
         if draw_lines:
             self.ax.indicate_inset_zoom(axins, edgecolor="black", alpha=0.5)
@@ -747,7 +781,7 @@ class symple_plot:
         sp2.is_twinx = True  # 新しい軸の左目盛りをオフにするフラグ
         
         if alab := kwargs.get('alab'):
-            ax2.set_ylabel(alab, fontsize=self.axilab)
+            ax2.set_ylabel(alab, fontsize=self.alab_fs)
         if col := kwargs.get('col'):
             ax2.spines['right'].set_color(col)
             ax2.tick_params(axis='y', colors=col)
@@ -768,7 +802,7 @@ class symple_plot:
         sp2.is_twiny = True  # 新しい軸の下目盛りをオフにするフラグ
         
         if alab := kwargs.get('alab'):
-            ax2.set_xlabel(alab, fontsize=self.axilab)
+            ax2.set_xlabel(alab, fontsize=self.alab_fs)
         if col := kwargs.get('col'):
             ax2.spines['top'].set_color(col)
             ax2.tick_params(axis='x', colors=col)
@@ -802,11 +836,11 @@ class symple_plot:
 
         sec_ax = self.ax.secondary_xaxis(location, functions=funcs)
         if alab := kwargs.get('alab'):
-            sec_ax.set_xlabel(alab, fontsize=self.axilab)
+            sec_ax.set_xlabel(alab, fontsize=self.alab_fs)
             
         # 🌟 主目盛り・補助目盛りの内向き設定とサイズ適用 🌟
         sec_ax.minorticks_on()
-        sec_ax.tick_params(which='major', direction='in', length=self.tlength, labelsize=self.axinum)
+        sec_ax.tick_params(which='major', direction='in', length=self.tlength, labelsize=self.tick_fs)
         sec_ax.tick_params(which='minor', direction='in', length=self.tlength * 0.5)
         
         return sec_ax
@@ -837,11 +871,11 @@ class symple_plot:
 
         sec_ax = self.ax.secondary_yaxis(location, functions=funcs)
         if alab := kwargs.get('alab'):
-            sec_ax.set_ylabel(alab, fontsize=self.axilab)
+            sec_ax.set_ylabel(alab, fontsize=self.alab_fs)
             
         # 🌟 主目盛り・補助目盛りの内向き設定とサイズ適用 🌟
         sec_ax.minorticks_on()
-        sec_ax.tick_params(which='major', direction='in', length=self.tlength, labelsize=self.axinum)
+        sec_ax.tick_params(which='major', direction='in', length=self.tlength, labelsize=self.tick_fs)
         sec_ax.tick_params(which='minor', direction='in', length=self.tlength * 0.5)
         
         return sec_ax
