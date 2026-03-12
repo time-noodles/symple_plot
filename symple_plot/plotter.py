@@ -501,7 +501,7 @@ class symple_plot:
         self._apply_common_settings(**kwargs)
         return self.ax
 
-    def plot(self, X: Any, Y: Any, **kwargs: Any) -> Axes:
+    def plot(self, X: Any, Y: Any, **kwargs: Any) -> plt.Axes:
         """折れ線グラフを描画します。リストのリストを渡すことで複数データの一括プロットが可能です。
 
         Args:
