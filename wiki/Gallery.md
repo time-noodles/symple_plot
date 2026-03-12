@@ -111,6 +111,8 @@ sp_arr[1].ax.set_title("Standard plot")
 plt.show()
 ```
 
+![枠の事前生成](../images/12b_preset.png)
+
 ---
 
 ## 2. 複数パネルとレイアウト
