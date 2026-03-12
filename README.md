@@ -3,6 +3,22 @@
 `symple_plot` は、Matplotlibをベースにした研究・データ解析用の強力なグラフ描画ラッパーライブラリです。
 論文やプレゼンテーションでそのまま使える美しい図を、最小限のコードで生成することを目的に設計されています。
 
+---
+## 目次 (Table of Contents)
+
+- [✨ 主な特徴 (Features)](#-主な特徴-features)
+- [📦 インストール (Installation)](#-インストール-installation)
+- [🚀 クイックスタート (Quick Start)](#-クイックスタート-quick-start)
+- [🔲 グラフ枠の生成 (`create_symple_plots`)](#-グラフ枠の生成-create_symple_plots)
+- [🎨 コア描画メソッド (Core Plotting Methods)](#-コア描画メソッド-core-plotting-methods)
+  - [1. `sp.plot()` と `sp.scatter()`](#1-spplot-と-spscatter)
+  - [2. `sp.imshow()` と `sp.tdscatter()`](#2-spimshow-と-sptdscatter)
+- [✨ symple_plot 固有の共通引数 (Unique Parameters)](#-symple_plot-固有の共通引数-unique-parameters)
+- [📚 応用ギャラリー・便利ツール (Advanced Gallery & Utilities)](#-応用ギャラリー便利ツール-advanced-gallery--utilities)
+- [謝辞 (Acknowledgments)](#謝辞-acknowledgments)
+
+---
+
 ## ✨ 主な特徴 (Features)
 
 * **Auto Smart Formatter**: 軸のスケールを自動解析し、`5.0 × 10^4` のような美しい科学的記数法に自動フォーマットします。複数のデータ間で指数も統一されます。

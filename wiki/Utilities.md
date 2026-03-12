@@ -3,6 +3,22 @@
 `symple_plot` は、グラフ描画の裏側を支えるための高度なユーティリティ群をモジュール化して提供しています。
 機能ごとにファイルが分割されていますが（`data_utils`, `file_utils`, `fit_utils`）、これらは `__init__.py` で統合されているため、すべて最上位階層から直接インポートして単独で使用することが可能です。
 
+## 目次 (Table of Contents)
+
+- [📥 インポート方法](#-インポート方法)
+- [1. データの整形ツール (`data_utils.py`)](#1-データの整形ツール-data_utilspy)
+  - [`get_yrange(x, y, xmin, xmax)` / `get_xrange(x, y, ymin, ymax)`](#get_yrangex-y-xmin-xmax--get_xrangex-y-ymin-ymax)
+  - [`valid_xy(x, y)`](#valid_xyx-y)
+  - [`pad_list(L)`](#pad_listl)
+- [2. ファイル操作ツール (`file_utils.py`)](#2-ファイル操作ツール-file_utilspy)
+  - [`straighten_path(folder)` & `del_file(targets)`](#straighten_pathfolder--del_filetargets)
+- [3. 解析・最適化ツール (`fit_utils.py` / `data_utils.py`)](#3-解析最適化ツール-fit_utilspy--data_utilspy)
+  - [`auto_curve_fit(f, xdata, ydata)`](#auto_curve_fitf-xdata-ydata)
+  - [`reg_n(fit, x)`](#reg_nfit-x)
+  - [`remove_background(signal, fc=0.1)`](#remove_backgroundsignal-fc01-new)
+
+---
+
 ## 📥 インポート方法
 
 ```python
