@@ -10,6 +10,7 @@
   - [1-1. 指数の自動統一と科学的記数法](#1-1-指数の自動統一と科学的記数法)
   - [1-2. 軸の描画範囲の固定 (`cx`, `cy`)](#1-2-軸の描画範囲の固定-cx-cy)
   - [1-3. 目盛り数値の非表示 (`nox`, `noy`)](#1-3-目盛り数値の非表示-nox-noy)
+  - [1-4. 枠の事前生成とネイティブ関数との連携 (`pre_set`)](#1-4-枠の事前生成とネイティブ関数との連携-pre_set)
 - [2. 複数パネルとレイアウト](#2-複数パネルとレイアウト)
   - [2-1. グリッドプロットと軸の共有 (`sharex`, `sharey`)](#2-1-グリッドプロットと軸の共有-sharex-sharey)
   - [2-2. 隙間なしグリッド (Flush Grid)](#2-2-隙間なしグリッド-flush-grid)
@@ -79,6 +80,36 @@ sp_arr[1].plot(x, np.sin(x), alab=["X", "Y (Limited)"], cx=[2, 8], cy=[-0.8, 0.8
 sp_arr[1].plot(x, np.sin(x), alab=["X", "Y (Hidden Ticks)"], noy=True)
 ```
 ![目盛り非表示](../images/12_noticks.png)
+
+### 1-4. 枠の事前生成とネイティブ関数との連携 (`pre_set`)
+`symple_plot` に実装されていないMatplotlib独自の描画関数（`fill_between`, `bar`, `errorbar` など）を使いたい場合、`pre_set` メソッドを使用します。これにより、データ範囲や美しい軸フォーマット（`cx`, `logx` など）だけを先に適用し、その後で自由にネイティブ関数を呼び出すことができます。
+
+| メソッド / 引数 | 説明 |
+| --- | --- |
+| `pre_set(X, Y, **kwargs)` | X, Yのデータから軸範囲を計算し、`**kwargs` のフォーマットを適用した空の枠を作成します。 |
+
+```python
+import numpy as np
+import matplotlib.pyplot as plt
+from symple_plot import create_symple_plots
+
+fig, sp_arr = create_symple_plots(1, 2, figsize=(12, 4))
+x = np.linspace(0, 10, 100)
+y_mean = np.sin(x)
+y_err = 0.2 * np.ones_like(x)
+
+# 左: pre_set で枠を作り、Matplotlibネイティブの fill_between を使う
+ax = sp_arr[0].pre_set(x, y_mean, alab=["X", "Y (with Error)"], cx=[2, 8])
+ax.plot(x, y_mean, color='blue')
+ax.fill_between(x, y_mean - y_err, y_mean + y_err, color='blue', alpha=0.3)
+sp_arr[0].ax.set_title("pre_set + ax.fill_between")
+
+# 右: 通常のplot
+sp_arr[1].plot(x, y_mean, alab=["X", "Y (Normal)"])
+sp_arr[1].ax.set_title("Standard plot")
+
+plt.show()
+```
 
 ---
 

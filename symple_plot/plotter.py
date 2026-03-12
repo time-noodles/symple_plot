@@ -1,3 +1,4 @@
+from typing import List, Tuple, Union, Optional, Any, Callable
 import numpy as np
 import os
 import string
@@ -8,19 +9,21 @@ from matplotlib.colors import LinearSegmentedColormap
 from sklearn.metrics import r2_score
 import mpl_toolkits.axes_grid1
 
-# 上部のインポート
 from .data_utils import valid_xy, pad_list, minmax, ensure_2d, get_yrange, get_xrange
 from .fit_utils import auto_curve_fit, reg_n
 
 # ==========================================
 # 🌟 論文・スライド用スタイル一括設定機能 🌟
 # ==========================================
-def set_style(mode='default'):
-    """
-    描画スタイルを一括設定します。
-    mode='paper': 論文用 (serifフォント, 細めの線)
-    mode='slide': プレゼン用 (sans-serifフォント, 太めの線, 大きな文字)
-    mode='default': Matplotlibの初期状態に戻す
+def set_style(mode: str = 'default') -> None:
+    """描画スタイルを一括設定します。
+
+    Args:
+        mode (str, optional): 
+            - `'paper'`: 論文用 (serifフォント, 細めの線)
+            - `'slide'`: プレゼン用 (sans-serifフォント, 太めの線, 大きな文字)
+            - `'default'`: Matplotlibの初期状態に戻す
+            Defaults to 'default'.
     """
     if mode == 'paper':
         plt.rcParams.update({
@@ -94,10 +97,32 @@ def alpha_calc(N, num):
     N -= 1
     return 1 if N == 0 else (num / N * 0.75 + 0.25)
 
-def create_symple_plots(nrows=1, ncols=1, figsize=None, style=None, auto_label=False, flush=False, **kwargs):
-    """
-    グラフ枠を生成します。
-    flush=True にすると、隙間のない結合グリッド（共有軸）を作成します。
+def create_symple_plots(
+    nrows: int = 1, 
+    ncols: int = 1, 
+    figsize: Optional[Tuple[float, float]] = None, 
+    style: Optional[str] = None, 
+    auto_label: bool = False, 
+    flush: bool = False, 
+    **kwargs: Any
+) -> Tuple[plt.Figure, Union['symple_plot', np.ndarray]]:
+    """単一または複数のグラフ枠（パネル）を一括で生成します。
+
+    論文やスライド用のスタイル設定や、グリッドの共有設定などもこの関数で一括指定できます。
+    `flush=True` を指定すると、パネル間の隙間をゼロにし、内側の軸ラベルを自動で非表示にした共有グリッドを作成します。
+
+    Args:
+        nrows (int, optional): グラフパネルの行数. Defaults to 1.
+        ncols (int, optional): グラフパネルの列数. Defaults to 1.
+        figsize (Tuple[float, float], optional): グラフ全体のサイズ `(width, height)`. 指定がない場合は自動計算されます. Defaults to None.
+        style (str, optional): `'paper'` または `'slide'` で描画スタイルを一括適用します. Defaults to None.
+        auto_label (bool, optional): Trueにすると、各パネルの左上に (a), (b)... と自動でラベルを付与します. Defaults to False.
+        flush (bool, optional): Trueにするとパネル間の隙間をゼロにし、完全な共有グリッドを作成します. Defaults to False.
+        **kwargs: `sharex`, `sharey` など、`plt.subplots` に渡される追加引数。
+
+    Returns:
+        -> Tuple[plt.Figure, Union['symple_plot', List['symple_plot'], Any]]: 
+            (Figureオブジェクト, symple_plotインスタンスの配列または単一オブジェクト)
     """
     if style:
         set_style(style)
@@ -144,7 +169,7 @@ def create_symple_plots(nrows=1, ncols=1, figsize=None, style=None, auto_label=F
 # 3. メインクラス: symple_plot
 # ==========================================
 class symple_plot:
-    def __init__(self, ax):
+    def __init__(self, ax: plt.Axes) -> None:
         self.ax = ax
         self.alab_fs = 20  # 旧 alab_fs から変更 (Axis Label Font Size)
         self.tick_fs = 17  # 旧 tick_fs から変更 (Tick Font Size)
@@ -400,13 +425,46 @@ class symple_plot:
         if zoomx is not None or zoomy is not None:
             self.add_inset_zoom(xlim=zoomx, ylim=zoomy, draw_lines=False)
 
-    def pre_set(self, X, Y, **kwargs):
+    def pre_set(self, X: Any, Y: Any, **kwargs: Any) -> Axes:
+        """データ範囲を計算し、グラフの枠（軸のスケールやフォーマット）だけを事前に設定します。
+
+        `symple_plot` に実装されていないMatplotlibネイティブの描画関数（`fill_between` や `bar` など）
+        を使用する前に、軸の美しいフォーマットや範囲指定（`cx`, `cy`, 対数スケールなど）を適用したい場合に最適です。
+
+        Args:
+            X (Any): 範囲計算の基準となるX軸データ。
+            Y (Any): 範囲計算の基準となるY軸データ。
+            **kwargs: `cx`, `cy`, `logx`, `logy`, `nox`, `noy`, `alab` などの共通引数。
+
+        Returns:
+            Axes: 設定が適用されたMatplotlib Axesオブジェクト。
+        """
         self.setxy(X, Y)
         self.sca = []
         self._apply_common_settings(**kwargs)
         return self.ax
 
-    def scatter(self, X, Y, **kwargs):
+    def scatter(self, X: Any, Y: Any, **kwargs: Any) -> Axes:
+        """散布図を描画します。リストのリストを渡すことで複数データの一括プロットが可能です。
+
+        固有の引数として、中抜きマーカー (`hollow=True` または `facecolor='none'`) に対応しています。
+
+        Args:
+            X (Any): X軸のデータ配列またはそのリスト。
+            Y (Any): Y軸のデータ配列またはそのリスト。
+            **kwargs: 
+                - `alab` (list): `["X軸", "Y軸"]`
+                - `lab` (str/list): 凡例ラベル
+                - `col` (str/list): 色 (`'grads'`, `'red'` 等)
+                - `size` (float): マーカーサイズ (デフォルト: 40)
+                - `marker` (str/list): マーカー形状 (`'o'`, `'s'` 等)
+                - `hollow` (bool): Trueで中抜きマーカー
+                - `cx`, `cy` (list): 描画範囲固定 `[min, max]`
+                - `logx`, `logy` (bool): 対数スケール化
+
+        Returns:
+            Axes: 描画対象のMatplotlib Axesオブジェクト。
+        """
         self.setxy(X, Y)
         self.col_c(**kwargs)
         marker_size = kwargs.get('size', 40)
@@ -442,7 +500,24 @@ class symple_plot:
         self._apply_common_settings(**kwargs)
         return self.ax
 
-    def plot(self, X, Y, **kwargs):
+    def plot(self, X: Any, Y: Any, **kwargs: Any) -> Axes:
+        """折れ線グラフを描画します。リストのリストを渡すことで複数データの一括プロットが可能です。
+
+        Args:
+            X (Any): X軸のデータ配列またはそのリスト。
+            Y (Any): Y軸のデータ配列またはそのリスト。
+            **kwargs: 
+                - `alab` (list): `["X軸", "Y軸"]`
+                - `lab` (str/list): 凡例ラベル
+                - `col` (str/list): 色 (`'grads'`, `'red'` 等)
+                - `linestyle` (str/list): 線種 (`'-'`, `'--'` 等)
+                - `linewidth` (float): 線の太さ
+                - `cx`, `cy` (list): 描画範囲固定 `[min, max]`
+                - `logx`, `logy` (bool): 対数スケール化
+
+        Returns:
+            Axes: 描画対象のMatplotlib Axesオブジェクト。
+        """
         self.setxy(X, Y)
         self.col_c(**kwargs)
         linestyles = kwargs.get('linestyle', ['-'])
@@ -456,7 +531,24 @@ class symple_plot:
         self._apply_common_settings(**kwargs)
         return self.ax
 
-    def Regression(self, regr, directory='./', **kwargs):
+    def Regression(self, regr: Union[int, Callable], directory: str = './', **kwargs: Any) -> Axes:
+        """プロットされたデータに対して回帰分析・フィッティングを実行し、曲線を重ね描きします。
+
+        結果（パラメータ、誤差、R2スコア）は `regression_results.csv` に自動保存されます。
+
+        Args:
+            regr (Union[int, Callable]): 
+                - 整数(int)を指定した場合: その次数の多項式回帰を実行。
+                - 関数(Callable)を指定した場合: その関数で非線形フィッティングを実行。
+            directory (str, optional): CSVファイルの保存先ディレクトリ. Defaults to './'.
+            **kwargs: 
+                - `auto_p0` (bool): TrueでSciPy差分進化法による初期値の大域探索を実行。
+                - `bounds` (tuple): `auto_p0=True` 時の探索範囲。
+                - `n_trials` (int): 探索回数。
+
+        Returns:
+            Axes: 描画対象のMatplotlib Axesオブジェクト。
+        """
         self.col_c(**kwargs)
         x_l = np.linspace(self.current_xmin, self.current_xmax, 1000)
         df_rows = []
@@ -506,7 +598,18 @@ class symple_plot:
         self.ax.figure.tight_layout()
         return self.ax
 
-    def tdscatter(self, X, Y, Z, **kwargs):
+    def tdscatter(self, X: Any, Y: Any, Z: Any, **kwargs: Any) -> Tuple[Axes, List[Any]]:
+        """3D空間に散布図を描画します。（※事前に `projection='3d'` で生成されたAxesが必要です）
+
+        Args:
+            X (Any): X軸データ。
+            Y (Any): Y軸データ。
+            Z (Any): Z軸データ。
+            **kwargs: `alab` (3要素のリスト), `col`, `size`, `cz` (Z軸の描画範囲) など。
+
+        Returns:
+            Tuple[Axes, List[Any]]: Axesオブジェクトと、生成されたPathCollectionのリスト。
+        """
         self.setxyz(X, Y, Z)
         self.col_c(**kwargs)
         marker_size = kwargs.get('size', 40)
@@ -517,7 +620,18 @@ class symple_plot:
         self._apply_common_settings(**kwargs)
         return self.ax, self.sca
 
-    def tdplot(self, X, Y, Z, **kwargs):
+    def tdplot(self, X: Any, Y: Any, Z: Any, **kwargs: Any) -> Tuple[Axes, List[Any]]:
+        """3D空間にワイヤーフレーム（折れ線）を描画します。（※ `projection='3d'` のAxesが必要）
+
+        Args:
+            X (Any): X軸データ。
+            Y (Any): Y軸データ。
+            Z (Any): Z軸データ。
+            **kwargs: 共通引数。
+
+        Returns:
+            Tuple[Axes, List[Any]]: Axesオブジェクトと生成されたラインオブジェクトのリスト。
+        """
         self.setxyz(X, Y, Z)
         self.col_c(**kwargs)
         self.sca = []
@@ -527,7 +641,21 @@ class symple_plot:
         self._apply_common_settings(**kwargs)
         return self.ax, self.sca
 
-    def imshow(self, X, Y, Z, vmax, **kwargs):
+    def imshow(self, X: Any, Y: Any, Z: Any, vmax: float, **kwargs: Any) -> Tuple[Axes, Any]:
+        """2Dのカラーマップ画像（ヒートマップ）を描画します。
+
+        Z軸の値に応じて色が割り当てられ、カラーバーが自動的に右側に付与されます。
+
+        Args:
+            X (Any): X軸の座標データ配列（1D）。
+            Y (Any): Y軸の座標データ配列（1D）。
+            Z (Any): 2次元の強度データ配列（2D）。
+            vmax (float): カラーマップの最大値。
+            **kwargs: `col` (カラーマップ名: `'grads'`, `'jet'`, `'turbo'` 等), `logz` (カラーバーの対数化) など。
+
+        Returns:
+            Tuple[Axes, Any]: AxesオブジェクトとAxesImageオブジェクト。
+        """
         Z = np.array(Z)
         if Z.ndim == 3: Z = Z[0]
         zx, zy = Z.shape
@@ -577,7 +705,19 @@ class symple_plot:
         self.ax.figure.tight_layout()
         return self.ax, self.im
 
-    def add_panel_label(self, text, x=-0.15, y=1.05, fontsize=None, weight='bold'):
+    def add_panel_label(self, text: str, x: float = -0.15, y: float = 1.05, fontsize: Optional[int] = None, weight: str = 'bold') -> Axes:
+        """パネルの左上に (a), (b) のような識別ラベルを追加します。
+
+        Args:
+            text (str): 表示するテキスト（例: `"(a)"`）。
+            x (float, optional): X方向の相対座標. Defaults to -0.15.
+            y (float, optional): Y方向の相対座標. Defaults to 1.05.
+            fontsize (Optional[int], optional): フォントサイズ. Defaults to None (自動計算).
+            weight (str, optional): フォントの太さ. Defaults to 'bold'.
+
+        Returns:
+            Axes: 対象のAxesオブジェクト。
+        """
         if fontsize is None:
             fontsize = self.alab_fs + 2
             
@@ -586,7 +726,20 @@ class symple_plot:
                      va='bottom', ha='right')
         return self.ax
 
-    def add_inset_zoom(self, xlim=None, ylim=None, bounds='auto', margin=0.02, draw_lines=False, **kwargs):
+    def add_inset_zoom(self, xlim: Optional[List[float]] = None, ylim: Optional[List[float]] = None, bounds: Union[str, List[float]] = 'auto', margin: float = 0.02, draw_lines: bool = False, **kwargs: Any) -> Optional[Axes]:
+        """指定した範囲(xlim, ylim)のデータを自動探索し、小窓（Inset）として拡大描画します。
+
+        Args:
+            xlim (Optional[List[float]], optional): 拡大したいX軸の範囲 `[xmin, xmax]`. Defaults to None.
+            ylim (Optional[List[float]], optional): 拡大したいY軸の範囲 `[ymin, ymax]`. Defaults to None.
+            bounds (Union[str, List[float]], optional): 小窓の配置。`'auto'`でデータの無い場所を自動探索。`'upper left'`等の文字列や `[x, y, w, h]` も可. Defaults to 'auto'.
+            margin (float, optional): 拡大範囲の余白割合. Defaults to 0.02.
+            draw_lines (bool, optional): 小窓と元のグラフを繋ぐ補助線を描画するかどうか. Defaults to False.
+            **kwargs: `nox`, `noy` など小窓内部に適用する設定。
+
+        Returns:
+            Optional[Axes]: 生成された小窓のAxesオブジェクト。描画不要な場合はNone。
+        """
         if cx := kwargs.get('cx'): xlim = cx
         if cy := kwargs.get('cy'): ylim = cy
 
@@ -765,11 +918,15 @@ class symple_plot:
         
         return axins
 
-    # ==========================================
-    # 🌟 第二軸 (Twin Axes & Secondary Axes) 🌟
-    # ==========================================
-    def twinx(self, **kwargs):
-        """第二Y軸 (右側) を作成して symple_plot インスタンスを返す。"""
+    def twinx(self, **kwargs: Any) -> 'symple_plot':
+        """同じX軸を持つ、右側の第二Y軸を生成します。
+
+        Args:
+            **kwargs: `col` (軸とラベルの色), `alab` (Y軸ラベル)
+
+        Returns:
+            symple_plot: 第二軸を操作するための新しいsymple_plotインスタンス。
+        """
         self.aspect = 'auto'
         self.ax.set_aspect('auto')
         self.hide_right_ticks = True
@@ -789,8 +946,15 @@ class symple_plot:
             sp2.col = col
         return sp2
 
-    def twiny(self, **kwargs):
-        """第二X軸 (上側) を作成して symple_plot インスタンスを返す。"""
+    def twiny(self, **kwargs: Any) -> 'symple_plot':
+        """同じY軸を持つ、上側の第二X軸を生成します。
+
+        Args:
+            **kwargs: `col` (軸とラベルの色), `alab` (X軸ラベル)
+
+        Returns:
+            symple_plot: 第二軸を操作するための新しいsymple_plotインスタンス。
+        """
         self.aspect = 'auto'
         self.ax.set_aspect('auto')
         self.hide_top_ticks = True
@@ -810,9 +974,18 @@ class symple_plot:
             sp2.col = col
         return sp2
 
-    def secondary_xaxis(self, functions, location='top', **kwargs):
-        """スケール変換用の第二X軸を作成する。
-        単一の関数(順関数)のみを渡した場合は、SciPyを用いて逆関数を自動生成する。
+    def secondary_xaxis(self, functions: Union[Callable, Tuple[Callable, Callable]], location: str = 'top', **kwargs: Any) -> Axes:
+        """スケール変換用の第二X軸を生成します（例: 摂氏を華氏に変換）。
+
+        単一の関数(順関数)のみを渡した場合は、SciPyを用いて逆関数を自動生成します。
+
+        Args:
+            functions (Union[Callable, Tuple[Callable, Callable]]): 変換関数。順関数のみ、または (順関数, 逆関数) のタプル。
+            location (str, optional): 軸の配置 (`'top'` または `'bottom'`). Defaults to 'top'.
+            **kwargs: `alab` (X軸ラベル)
+
+        Returns:
+            Axes: 生成された第二軸のオブジェクト。
         """
         if location == 'top':
             self.hide_top_ticks = True
@@ -845,9 +1018,18 @@ class symple_plot:
         
         return sec_ax
 
-    def secondary_yaxis(self, functions, location='right', **kwargs):
-        """スケール変換用の第二Y軸を作成する。
-        単一の関数(順関数)のみを渡した場合は、SciPyを用いて逆関数を自動生成する。
+    def secondary_yaxis(self, functions: Union[Callable, Tuple[Callable, Callable]], location: str = 'right', **kwargs: Any) -> Axes:
+        """スケール変換用の第二Y軸を生成します。
+
+        単一の関数(順関数)のみを渡した場合は、SciPyを用いて逆関数を自動生成します。
+
+        Args:
+            functions (Union[Callable, Tuple[Callable, Callable]]): 変換関数。順関数のみ、または (順関数, 逆関数) のタプル。
+            location (str, optional): 軸の配置 (`'right'` または `'left'`). Defaults to 'right'.
+            **kwargs: `alab` (Y軸ラベル)
+
+        Returns:
+            Axes: 生成された第二軸のオブジェクト。
         """
         if location == 'right':
             self.hide_right_ticks = True

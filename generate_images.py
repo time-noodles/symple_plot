@@ -94,8 +94,28 @@ def main():
     sp_arr4[0].ax.set_title("Default")
     sp_arr4[1].plot(x4, np.sin(x4), alab=["X", "Y (Hidden Ticks)"], noy=True)
     sp_arr4[1].ax.set_title("noy=True")
+
     fig4.savefig("images/12_noticks.png", dpi=300, bbox_inches='tight')
     plt.close(fig4)
+
+    # 🌟 追加: 12b. 枠の事前生成とネイティブ関数との連携 (pre_set) (1-4) 🌟
+    fig4b, sp_arr4b = create_symple_plots(1, 2, figsize=(12, 4))
+    x4b = np.linspace(0, 10, 100)
+    y_mean = np.sin(x4b)
+    y_err = 0.2 * np.ones_like(x4b)
+    
+    # 左パネル: pre_setを使って枠を設定し、fill_betweenで描画
+    ax4b = sp_arr4b[0].pre_set(x4b, y_mean, alab=["X", "Y (with Error)"], cx=[2, 8])
+    ax4b.plot(x4b, y_mean, color='blue')
+    ax4b.fill_between(x4b, y_mean - y_err, y_mean + y_err, color='blue', alpha=0.3)
+    sp_arr4b[0].ax.set_title("pre_set + ax.fill_between")
+    
+    # 右パネル: 比較用の通常プロット
+    sp_arr4b[1].plot(x4b, y_mean, alab=["X", "Y (Normal)"], cx=[2, 8])
+    sp_arr4b[1].ax.set_title("Standard plot")
+    
+    fig4b.savefig("images/12b_preset.png", dpi=300, bbox_inches='tight')
+    plt.close(fig4b)
 
     # 13. グリッド共有軸 (2-1)
     fig11, sp_arr11 = create_symple_plots(2, 2, figsize=(10, 8), sharex=True, sharey=True)
