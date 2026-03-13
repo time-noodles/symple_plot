@@ -395,41 +395,51 @@ class symple_plot:
             else:
                 self.ax.set_aspect(self.aspect / self.ax.get_data_ratio(), adjustable="box")
                 
-        # 垂直線 (vx) の描画ロジックの修正
+        # 垂直線 (vx) の描画
         if 'vx' in kwargs:
             vx_list = kwargs['vx']
             if not isinstance(vx_list, (list, np.ndarray)):
                 vx_list = [vx_list]
             
-            # vcol のリスト対応
             vcol = kwargs.get('vcol', 'red')
             vls = kwargs.get('vls', '--')
             vlw = kwargs.get('vlw', 1)
             
             for i, x_val in enumerate(vx_list):
-                # リストならi番目、そうでなければそのままの色を使用
-                current_col = vcol[i % len(vcol)] if isinstance(vcol, list) else vcol
-                current_ls = vls[i % len(vls)] if isinstance(vls, list) else vls
-                current_lw = vlw[i % len(vlw)] if isinstance(vlw, list) else vlw
+                # 🌟 NumPy配列から取り出した場合にMatplotlibが認識できる形式に変換
+                if isinstance(vcol, (list, np.ndarray)):
+                    current_col = vcol[i % len(vcol)]
+                    if hasattr(current_col, 'tolist'): # NumPy配列ならリストに変換
+                        current_col = current_col.tolist()
+                else:
+                    current_col = vcol
+                
+                current_ls = vls[i % len(vls)] if isinstance(vls, (list, np.ndarray)) else vls
+                current_lw = vlw[i % len(vlw)] if isinstance(vlw, (list, np.ndarray)) else vlw
                 
                 self.ax.axvline(x_val, color=current_col, linestyle=current_ls, linewidth=current_lw)
 
-        # 水平線 (hy) の描画ロジックの修正
+        # 水平線 (hy) の描画
         if 'hy' in kwargs:
             hy_list = kwargs['hy']
             if not isinstance(hy_list, (list, np.ndarray)):
                 hy_list = [hy_list]
             
-            # hcol のリスト対応
             hcol = kwargs.get('hcol', 'red')
             hls = kwargs.get('hls', '--')
             hlw = kwargs.get('hlw', 1)
             
             for i, y_val in enumerate(hy_list):
-                # リストならi番目、そうでなければそのままの色を使用
-                current_col = hcol[i % len(hcol)] if isinstance(hcol, list) else hcol
-                current_ls = hls[i % len(hls)] if isinstance(hls, list) else hls
-                current_lw = hlw[i % len(hlw)] if isinstance(hlw, list) else hlw
+                # 🌟 NumPy配列から取り出した場合にMatplotlibが認識できる形式に変換
+                if isinstance(hcol, (list, np.ndarray)):
+                    current_col = hcol[i % len(hcol)]
+                    if hasattr(current_col, 'tolist'):
+                        current_col = current_col.tolist()
+                else:
+                    current_col = hcol
+                
+                current_ls = hls[i % len(hls)] if isinstance(hls, (list, np.ndarray)) else hls
+                current_lw = hlw[i % len(hlw)] if isinstance(hlw, (list, np.ndarray)) else hlw
                 
                 self.ax.axhline(y_val, color=current_col, linestyle=current_ls, linewidth=current_lw)
 
