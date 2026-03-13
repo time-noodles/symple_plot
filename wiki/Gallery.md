@@ -265,3 +265,31 @@ def exp_decay(x, a, b): return a * np.exp(-b * x)
 sp.Regression(regr=exp_decay, auto_p0=True, n_trials=50, bounds=([0, 0], [10, 5]))
 ```
 ![回帰と補助線](../images/20_regression.png)
+
+### 4-2. スペクトル解析と自動バックグラウンド除去 (`remove_background`)
+XRDやラマン分光、XPSなどのスペクトルデータから、大きくうねるバックグラウンド（ベースライン）を高精度に除去します。
+引数に `auto_opt=True` を指定するだけで、SciPyの差分進化法を用いてアルゴリズム（pybeads）の複雑なパラメータ群（`fc`, `r`, `amp`）を**全自動で最適化**します。
+
+※ 使用には事前に `pip install pybeads` が必要です。
+
+```python
+import numpy as np
+import matplotlib.pyplot as plt
+from symple_plot import create_symple_plots
+from symple_plot.data_utils import remove_background
+
+# ダミーのスペクトルデータ (ベースライン + ピーク + ノイズ)
+x = np.linspace(0, 100, 500)
+y_raw = np.sin(x / 20) * 10 + x * 0.1 + 25 * np.exp(-((x - 75)**2) / 10) + np.random.normal(0, 1, 500)
+
+# auto_opt=True で全自動バックグラウンド除去！
+y_clean = remove_background(y_raw, auto_opt=True)
+
+fig, sp = create_symple_plots(1, 2, figsize=(14, 4))
+sp[0].plot(x, y_raw, col='black', alpha=0.6, lab="Raw Data")
+sp[0].plot(x, y_raw - y_clean, col='red', linestyle='--', lab="Estimated Baseline")
+sp[1].plot(x, y_clean, col='blue', lab="Clean Signal (auto_opt=True)")
+
+plt.show()
+```
+![自動バックルランド除去](../images/21_remove_background.png)

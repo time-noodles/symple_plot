@@ -228,6 +228,37 @@ def main():
     fig7.savefig("images/20_regression.png", dpi=300, bbox_inches='tight')
     plt.close(fig7)
 
+    try:
+        import pybeads  # pybeadsがインストールされている場合のみ実行
+        from symple_plot.data_utils import remove_background
+        
+        fig_bg, sp_bg = create_symple_plots(1, 2, figsize=(14, 4))
+        
+        # XRDやラマンスペクトル風のダミーデータを生成
+        x_spec = np.linspace(0, 100, 500)
+        baseline = np.sin(x_spec / 20) * 10 + x_spec * 0.1  # 大きくうねるベースライン
+        peaks = 20 * np.exp(-((x_spec - 30)**2) / 5) + 15 * np.exp(-((x_spec - 60)**2) / 2) + 25 * np.exp(-((x_spec - 75)**2) / 10)
+        noise = np.random.normal(0, 1, len(x_spec))
+        y_raw = baseline + peaks + noise
+        
+        # auto_opt=True で自動最適化実行
+        y_clean = remove_background(y_raw, auto_opt=True)
+        y_baseline = y_raw - y_clean
+        
+        # 左パネル：Rawデータと推定されたベースライン
+        sp_bg[0].plot(x_spec, y_raw, col='black', alpha=0.6, lab="Raw Data", alab=["2$\\theta$ (deg.)", "Intensity"])
+        sp_bg[0].plot(x_spec, y_baseline, col='red', linestyle='--', linewidth=2, lab="Estimated Baseline")
+        sp_bg[0].ax.set_title("Before: Raw Data & Baseline")
+        
+        # 右パネル：除去後のクリーンなデータ
+        sp_bg[1].plot(x_spec, y_clean, col='blue', lab="Clean Signal (auto_opt=True)", alab=["2$\\theta$ (deg.)", "Intensity"])
+        sp_bg[1].ax.set_title("After: Background Removed")
+        
+        fig_bg.savefig("images/21_remove_background.png", dpi=300, bbox_inches='tight')
+        plt.close(fig_bg)
+    except ImportError:
+        pass
+
     set_style('default')
     print("\n✅ All example images generated successfully.")
 

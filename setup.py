@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="symple_plot",
-    version="0.1.3.17",
+    version="0.1.3.18",
     packages=find_packages(),
     install_requires=[
         "numpy",

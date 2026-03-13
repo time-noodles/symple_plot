@@ -17,24 +17,89 @@ def ensure_2d(data: Any) -> List[Any]:
     if not isinstance(data[0], (list, tuple, np.ndarray, pd.Series)): return [data]
     return data
 
-def pad_list(L: List[Any]) -> List[np.ndarray]:
+def pad_list(*args: Any) -> List[np.ndarray]:
     """長さが異なる複数のリスト（ジャグ配列）を受け取り、最大の長さに合わせてNaNでパディングします。
+    
+    pad_list([x, y]) のような単一のリスト渡しにも、
+    pad_list(x, y, z) のような1〜複数引数渡しにも両方対応します。
 
     Args:
-        L (List[Any]): 長さが不揃いなリストまたは配列のリスト。
+        *args (Any): パディング対象のリストまたは配列。
 
     Returns:
         List[np.ndarray]: 全て同じ長さに揃えられたfloat型のNumPy配列のリスト。
     """
+    if len(args) == 0:
+        return []
+    
+    # 既存の pad_list([x, y]) の呼び出しに対応するための展開処理
+    if len(args) == 1 and isinstance(args[0], (list, tuple)):
+        if len(args[0]) == 0:
+            L = args[0]
+        elif hasattr(args[0][0], '__iter__') and not isinstance(args[0][0], str):
+            L = args[0]
+        else:
+            L = args
+    else:
+        L = args
+        
     max_len = max([len(i) for i in L]) if len(L) > 0 else 0
-    L_padded = [list(i) + [np.nan] * (max_len - len(i)) for i in L]
     res = []
-    for i in L_padded:
+    for i in L:
         try:
-            res.append(np.array(i, dtype=float))
+            arr = np.array(i, dtype=float)
         except (ValueError, TypeError):
-            res.append(np.asarray(pd.to_numeric(i, errors='coerce'), dtype=float))
+            arr = np.asarray(pd.to_numeric(i, errors='coerce'), dtype=float)
+        
+        if len(arr) < max_len:
+            arr = np.pad(arr, (0, max_len - len(arr)), constant_values=np.nan)
+        res.append(arr)
     return res
+
+
+def valid_xy(*args: Any) -> Tuple[np.ndarray, ...]:
+    """欠損値(NaN)や文字列を除外して、プロットに有効なデータのみを抽出します。
+    X, Y, Z... と1〜複数渡すことができ、すべての配列で有効なインデックスの要素だけを残します。
+
+    Args:
+        *args (Any): データ配列またはそのリスト。
+
+    Returns:
+        Tuple[np.ndarray, ...]: 有効な値のみを含む配列のタプル。
+    """
+    if len(args) == 0:
+        return ()
+    
+    if len(args) == 1 and isinstance(args[0], (list, tuple)):
+        if len(args[0]) == 0:
+            target_args = args[0]
+        elif hasattr(args[0][0], '__iter__') and not isinstance(args[0][0], str):
+            target_args = args[0]
+        else:
+            target_args = args
+    else:
+        target_args = args
+
+    arrs = []
+    for a in target_args:
+        try:
+            arr = np.asarray(a, dtype=float)
+        except (ValueError, TypeError):
+            arr = np.asarray(pd.to_numeric(a, errors='coerce'), dtype=float)
+        arrs.append(arr)
+    
+    min_len = min([len(a) for a in arrs]) if arrs else 0
+    arrs = [a[:min_len] for a in arrs]
+    
+    if min_len == 0:
+        return tuple(arrs)
+        
+    valid_mask = np.ones(min_len, dtype=bool)
+    for a in arrs:
+        valid_mask &= ~np.isnan(a)
+        valid_mask &= ~np.isinf(a)
+        
+    return tuple(a[valid_mask] for a in arrs)
 
 def minmax(val: List[Any], margin: float = 0.05, is_log: bool = False) -> Tuple[float, float]:
     """データのリストから、描画に最適な最小値と最大値（マージン込み）を計算します。
@@ -69,23 +134,6 @@ def minmax(val: List[Any], margin: float = 0.05, is_log: bool = False) -> Tuple[
         dif = max0 - min0
         if dif == 0: return min0 - abs(min0) * margin, max0 + abs(max0) * margin
         return min0 - dif * margin, max0 + dif * margin
-
-def valid_xy(x: Any, y: Any) -> Tuple[np.ndarray, np.ndarray]:
-    """欠損値(NaN)や文字列を除外して、プロットに有効なXとYのペアのみを抽出します。
-
-    Args:
-        x (Any): X軸データの配列またはリスト。
-        y (Any): Y軸データの配列またはリスト。
-
-    Returns:
-        Tuple[np.ndarray, np.ndarray]: 有効な値のみを含む (X配列, Y配列) のタプル。
-    """
-    try: x = np.asarray(x, dtype=float)
-    except: x = np.asarray(pd.to_numeric(x, errors='coerce'), dtype=float)
-    try: y = np.asarray(y, dtype=float)
-    except: y = np.asarray(pd.to_numeric(y, errors='coerce'), dtype=float)
-    mask = ~np.isnan(x) & ~np.isnan(y)
-    return x[mask], y[mask]
 
 def get_yrange(x: Any, y: Any, xmin: float, xmax: float) -> Tuple[np.ndarray, np.ndarray]:
     """Xの指定範囲(xmin ~ xmax)に含まれる、X配列とY配列のペアを抽出します。
@@ -134,49 +182,143 @@ def remove_background(
     amp: float = 0.8, 
     Nit: int = 15, 
     pen: str = 'L1_v2', 
-    xscale_l: float = 10, 
-    xscale_r: float = 10, 
-    dx: float = 0.5
+    pad_mode: str = 'symmetric',   # 🌟 追加: 端点の処理モード（'symmetric', 'reflect', 'edge', 'none' 等）
+    pad_len: Optional[int] = None, # 🌟 追加: パディングする長さ（Noneで自動計算: 全長の10%）
+    xscale_l: float = 10,  # (後方互換用: 使用しません)
+    xscale_r: float = 10,  # (後方互換用: 使用しません)
+    dx: float = 0.5,       # (後方互換用: 使用しません)
+    auto_opt: bool = False,
+    max_iter: int = 10,
+    fast_opt: bool = True,
+    workers: int = 1
 ) -> np.ndarray:
     """pybeadsを用いてシグナルデータからベースライン（バックグラウンド）成分を高精度に除去・補正します。
-    端点での発散を防ぐためのシグモイド関数によるパディング処理が組み込まれています。
+    端点での発散を防ぐため、デフォルトで対称折り返しパディング（symmetric）が適用されます。
 
     ※ 使用には `pip install pybeads` が必要です。
 
     Args:
         signal (Union[List[float], np.ndarray]): バックグラウンド除去を行う対象の1次元シグナルデータ。
-        fc (float, optional): カットオフ周波数。値を小さくするとより滑らかなベースラインになります. Defaults to 0.1.
+        fc (float, optional): カットオフ周波数. Defaults to 0.1.
         d (int, optional): フィルタの次数. Defaults to 1.
         r (int, optional): 非対称性パラメータ. Defaults to 6.
         amp (float, optional): 正則化パラメータの乗数. Defaults to 0.8.
         Nit (int, optional): 反復回数. Defaults to 15.
         pen (str, optional): ペナルティ関数の種類. Defaults to 'L1_v2'.
-        xscale_l (float, optional): 左端パディングのスケール. Defaults to 10.
-        xscale_r (float, optional): 右端パディングのスケール. Defaults to 10.
-        dx (float, optional): パディングのステップ幅. Defaults to 0.5.
+        pad_mode (str, optional): 端点のパディング手法。端点の発散を防ぐには 'symmetric' が最適です. Defaults to 'symmetric'.
+        pad_len (Optional[int], optional): パディングの長さ。Noneの場合は全長の10%が自動で設定されます. Defaults to None.
+        auto_opt (bool, optional): TrueにするとSciPyの差分進化法を用いて最適な fc, r, amp を自動探索します. Defaults to False.
+        max_iter (int, optional): auto_opt=True 時の探索イテレーション数. Defaults to 10.
+        fast_opt (bool, optional): 最適化探索中の反復計算を間引き、処理を劇的に高速化します. Defaults to True.
+        workers (int, optional): 最適化に使用するCPUスレッド数。-1で全コアを使用します. Defaults to 1.
 
     Returns:
         np.ndarray: バックグラウンドが除去されたクリーンなシグナル配列。
     """
     try:
-        import pybeads
+        import pybeads as be
     except ImportError:
-        raise ImportError("pybeads is required for remove_background. Please install it using 'pip install pybeads'.")
+        print("[symple_plot] pybeads is not installed. Please run `pip install pybeads`.")
+        return np.asarray(signal)
+
+    signal_arr = np.asarray(signal, dtype=float)
+
+    def _apply_beads(t_fc: float, t_r: int, t_amp: float, current_Nit: int) -> np.ndarray:
+        # 🌟 改善部分: データの10%（最低10ポイント）を対称パディングして端点の連続性を確保
+        p_len = pad_len if pad_len is not None else max(len(signal_arr) // 10, 10)
         
-    d = 1
-    r = 6
-    amp = 0.8
-    lam0, lam1, lam2 = 0.5*amp, 5*amp, 4*amp
-    Nit = 15
-    pen = 'L1_v2'
-    
-    xscale_l, xscale_r = 10, 10
-    dx = 0.5
-    y_difficult_l = signal[0] * sigmoid(1/xscale_l * np.arange(-5*xscale_l, 5*xscale_l, dx))
-    y_difficult_r = signal[-1] * sigmoid(-1/xscale_r * np.arange(-5*xscale_r, 5*xscale_r, dx))
-    y_difficult_ext = np.hstack([y_difficult_l, signal, y_difficult_r])
-    len_l, len_o, len_r = len(y_difficult_l), len(signal), len(y_difficult_r)
-    
-    signal_est, bg_est, cost = pybeads.beads(y_difficult_ext, d, fc, r, Nit, lam0, lam1, lam2, pen, conv=None)
-    
-    return signal_est[len_l:len_l+len_o]
+        if pad_mode == 'none' or pad_mode is None:
+            padded_signal = signal_arr
+            p_len = 0
+        else:
+            try:
+                padded_signal = np.pad(signal_arr, p_len, mode=pad_mode)
+            except ValueError:
+                padded_signal = np.pad(signal_arr, p_len, mode='edge')
+        
+        lam0 = 0.5 * t_amp
+        lam1 = 5.0 * t_amp
+        lam2 = 4.0 * t_amp
+        
+        val_map = {
+            'd': int(d), 'fc': float(t_fc), 'r': int(t_r),
+            'lam0': float(lam0), 'lam1': float(lam1), 'lam2': float(lam2),
+            'Nit': int(current_Nit), 'pen': str(pen)
+        }
+        
+        import inspect
+        try:
+            sig = inspect.signature(be.beads)
+            kwargs = {}
+            params = list(sig.parameters.keys())
+            for param in params[1:]:
+                if param in val_map:
+                    kwargs[param] = val_map[param]
+            clean_signal, _bg, _cost = be.beads(padded_signal, **kwargs)
+        except Exception:
+            clean_signal, _bg, _cost = be.beads(
+                padded_signal, d=int(d), fc=float(t_fc), r=int(t_r), 
+                lam0=float(lam0), lam1=float(lam1), lam2=float(lam2), 
+                Nit=int(current_Nit), pen=str(pen)
+            )
+
+        if p_len == 0:
+            return clean_signal
+        return clean_signal[p_len:-p_len]
+
+    if auto_opt:
+        from scipy.optimize import differential_evolution
+        import warnings
+
+        opt_Nit = max(3, int(Nit * 0.3)) if fast_opt else int(Nit)
+        opt_popsize = 3 if fast_opt else 5
+
+        def objective(params: List[float]) -> float:
+            t_fc, t_r, t_amp = params
+            t_r_int = int(np.round(t_r))
+            
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                try:
+                    S_clean = _apply_beads(t_fc, t_r_int, t_amp, opt_Nit)
+                    
+                    med = np.median(S_clean)
+                    mad = np.median(np.abs(S_clean - med))
+                    if mad == 0: mad = 1e-9
+                    
+                    threshold = med + 3 * mad
+                    normal_mask = S_clean <= threshold
+                    outlier_mask = S_clean > threshold
+                    
+                    normal_vals = S_clean[normal_mask]
+                    outlier_vals = S_clean[outlier_mask]
+                    
+                    A = np.abs(np.mean(normal_vals)) + np.std(normal_vals) if len(normal_vals) > 0 else 1e9
+                    B = np.max(outlier_vals) if len(outlier_vals) > 0 else 0.0
+                    
+                    neg_penalty = np.abs(np.min(S_clean)) if np.min(S_clean) < 0 else 0.0
+                    loss = -B + A + (neg_penalty * 0.5)
+                    
+                    if np.isnan(loss) or np.isinf(loss):
+                        return 1e9
+                    return float(loss)
+                except Exception:
+                    return 1e9
+
+        bounds = [(0.005, 0.5), (1, 10), (0.1, 5.0)]
+        print(f"[symple_plot] Optimizing background parameters... (fast_opt={fast_opt}, workers={workers})")
+        
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            updating_mode = 'deferred' if workers != 1 else 'immediate'
+            res = differential_evolution(
+                objective, bounds, maxiter=max_iter, popsize=opt_popsize, 
+                tol=0.05, seed=42, workers=workers, updating=updating_mode
+            )
+        
+        fc = res.x[0]
+        r = int(np.round(res.x[1]))
+        amp = res.x[2]
+        print(f"[symple_plot] Optimization finished: fc={fc:.4f}, r={r}, amp={amp:.4f}")
+
+    return _apply_beads(fc, int(r), amp, int(Nit))
