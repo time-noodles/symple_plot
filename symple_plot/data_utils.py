@@ -184,38 +184,41 @@ def remove_background(
     amp: float = 0.8, 
     Nit: int = 15, 
     pen: str = 'L1_v2', 
-    pad_mode: str = 'symmetric',   # 🌟 追加: 端点の処理モード（'symmetric', 'reflect', 'edge', 'none' 等）
-    pad_len: Optional[int] = None, # 🌟 追加: パディングする長さ（Noneで自動計算: 全長の10%）
-    xscale_l: float = 10,  # (後方互換用: 使用しません)
-    xscale_r: float = 10,  # (後方互換用: 使用しません)
-    dx: float = 0.5,       # (後方互換用: 使用しません)
+    pad_mode: str = 'sigmoid',   # 🌟 作者推奨の sigmoid をデフォルトに変更
+    pad_len: Optional[int] = None,
+    xscale_l: float = 30.0,      # 🌟 作者推奨のデフォルト値 30
+    xscale_r: float = 30.0,      # 🌟 作者推奨のデフォルト値 30
+    dx: float = 1.0,             # 🌟 作者推奨のデフォルト値 1.0
     auto_opt: bool = False,
     max_iter: int = 10,
     fast_opt: bool = True,
     workers: int = 1
 ) -> np.ndarray:
-    """pybeadsを用いてシグナルデータからベースライン（バックグラウンド）成分を高精度に除去・補正します。
-    端点での発散を防ぐため、デフォルトで対称折り返しパディング（symmetric）が適用されます。
+    """pybeadsを用いてシグナルデータからベースライン成分を高精度に除去します。
+    デフォルトで pybeads 作者推奨のシグモイド関数によるゼロ・グラウンディングパディングが適用されます。
 
     ※ 使用には `pip install pybeads` が必要です。
 
     Args:
-        signal (Union[List[float], np.ndarray]): バックグラウンド除去を行う対象の1次元シグナルデータ。
+        signal (Union[List[float], np.ndarray]): 対象の1次元シグナルデータ。
         fc (float, optional): カットオフ周波数. Defaults to 0.1.
         d (int, optional): フィルタの次数. Defaults to 1.
         r (int, optional): 非対称性パラメータ. Defaults to 6.
         amp (float, optional): 正則化パラメータの乗数. Defaults to 0.8.
         Nit (int, optional): 反復回数. Defaults to 15.
         pen (str, optional): ペナルティ関数の種類. Defaults to 'L1_v2'.
-        pad_mode (str, optional): 端点のパディング手法。端点の発散を防ぐには 'symmetric' が最適です. Defaults to 'symmetric'.
-        pad_len (Optional[int], optional): パディングの長さ。Noneの場合は全長の10%が自動で設定されます. Defaults to None.
-        auto_opt (bool, optional): TrueにするとSciPyの差分進化法を用いて最適な fc, r, amp を自動探索します. Defaults to False.
-        max_iter (int, optional): auto_opt=True 時の探索イテレーション数. Defaults to 10.
-        fast_opt (bool, optional): 最適化探索中の反復計算を間引き、処理を劇的に高速化します. Defaults to True.
-        workers (int, optional): 最適化に使用するCPUスレッド数。-1で全コアを使用します. Defaults to 1.
+        pad_mode (str, optional): 端点のパディング手法 ('sigmoid', 'reflect_odd', 'edge', 'none'). Defaults to 'sigmoid'.
+        pad_len (Optional[int], optional): パディング長 (reflect_odd等で使用). Defaults to None.
+        xscale_l (float, optional): sigmoidパディング時の左側スケール. Defaults to 30.0.
+        xscale_r (float, optional): sigmoidパディング時の右側スケール. Defaults to 30.0.
+        dx (float, optional): sigmoidパディング時のステップ. Defaults to 1.0.
+        auto_opt (bool, optional): Trueで最適な fc, r, amp を自動探索. Defaults to False.
+        max_iter (int, optional): auto_opt=True 時の探索回数. Defaults to 10.
+        fast_opt (bool, optional): 探索中の計算を間引き高速化. Defaults to True.
+        workers (int, optional): 最適化に使用するCPUコア数 (-1で全コア). Defaults to 1.
 
     Returns:
-        np.ndarray: バックグラウンドが除去されたクリーンなシグナル配列。
+        np.ndarray: バックグラウンドが除去されたクリーンな配列。
     """
     try:
         import pybeads as be
@@ -226,18 +229,36 @@ def remove_background(
     signal_arr = np.asarray(signal, dtype=float)
 
     def _apply_beads(t_fc: float, t_r: int, t_amp: float, current_Nit: int) -> np.ndarray:
-        # 🌟 改善部分: データの10%（最低10ポイント）を対称パディングして端点の連続性を確保
-        p_len = pad_len if pad_len is not None else max(len(signal_arr) // 10, 10)
-        
-        if pad_mode == 'none' or pad_mode is None:
+        # 🌟 指定されたモードでパディング処理
+        if pad_mode == 'sigmoid':
+            def sigmoid(x_val):
+                return 1 / (1 + np.exp(-np.clip(x_val, -100, 100))) # オーバーフロー防止のclip
+            
+            pad_l = signal_arr[0] * sigmoid(1 / xscale_l * np.arange(-5 * xscale_l, 5 * xscale_l, dx))
+            pad_r = signal_arr[-1] * sigmoid(-1 / xscale_r * np.arange(-5 * xscale_r, 5 * xscale_r, dx))
+            
+            padded_signal = np.concatenate([pad_l, signal_arr, pad_r])
+            p_len_l = len(pad_l)
+            p_len_r = len(pad_r)
+            
+        elif pad_mode == 'reflect_odd':
+            p_len = pad_len if pad_len is not None else max(len(signal_arr) // 10, 10)
+            padded_signal = np.pad(signal_arr, p_len, mode='reflect', reflect_type='odd')
+            p_len_l = p_len_r = p_len
+            
+        elif pad_mode == 'none' or pad_mode is None:
             padded_signal = signal_arr
-            p_len = 0
+            p_len_l = p_len_r = 0
+            
         else:
+            p_len = pad_len if pad_len is not None else max(len(signal_arr) // 10, 10)
             try:
                 padded_signal = np.pad(signal_arr, p_len, mode=pad_mode)
             except ValueError:
                 padded_signal = np.pad(signal_arr, p_len, mode='edge')
+            p_len_l = p_len_r = p_len
         
+        # pybeadsのパラメータ構築
         lam0 = 0.5 * t_amp
         lam1 = 5.0 * t_amp
         lam2 = 4.0 * t_amp
@@ -264,9 +285,10 @@ def remove_background(
                 Nit=int(current_Nit), pen=str(pen)
             )
 
-        if p_len == 0:
+        # パディング部分を切り落として元の長さに戻す
+        if p_len_l == 0 and p_len_r == 0:
             return clean_signal
-        return clean_signal[p_len:-p_len]
+        return clean_signal[p_len_l:-p_len_r]
 
     if auto_opt:
         from scipy.optimize import differential_evolution
@@ -274,6 +296,9 @@ def remove_background(
 
         opt_Nit = max(3, int(Nit * 0.3)) if fast_opt else int(Nit)
         opt_popsize = 3 if fast_opt else 5
+        
+        # 🌟 端点効果を評価から除外するためのトリム幅 (全体の5%または最低5点)
+        trim = max(len(signal_arr) // 20, 5)
 
         def objective(params: List[float]) -> float:
             t_fc, t_r, t_amp = params
@@ -284,21 +309,24 @@ def remove_background(
                 try:
                     S_clean = _apply_beads(t_fc, t_r_int, t_amp, opt_Nit)
                     
-                    med = np.median(S_clean)
-                    mad = np.median(np.abs(S_clean - med))
+                    # 🌟 評価を中央のデータに限定し、端点の跳ね上がりを意図的に無視する
+                    S_eval = S_clean[trim:-trim]
+                    
+                    med = np.median(S_eval)
+                    mad = np.median(np.abs(S_eval - med))
                     if mad == 0: mad = 1e-9
                     
                     threshold = med + 3 * mad
-                    normal_mask = S_clean <= threshold
-                    outlier_mask = S_clean > threshold
+                    normal_mask = S_eval <= threshold
+                    outlier_mask = S_eval > threshold
                     
-                    normal_vals = S_clean[normal_mask]
-                    outlier_vals = S_clean[outlier_mask]
+                    normal_vals = S_eval[normal_mask]
+                    outlier_vals = S_eval[outlier_mask]
                     
                     A = np.abs(np.mean(normal_vals)) + np.std(normal_vals) if len(normal_vals) > 0 else 1e9
                     B = np.max(outlier_vals) if len(outlier_vals) > 0 else 0.0
                     
-                    neg_penalty = np.abs(np.min(S_clean)) if np.min(S_clean) < 0 else 0.0
+                    neg_penalty = np.abs(np.min(S_eval)) if np.min(S_eval) < 0 else 0.0
                     loss = -B + A + (neg_penalty * 0.5)
                     
                     if np.isnan(loss) or np.isinf(loss):
@@ -308,7 +336,7 @@ def remove_background(
                     return 1e9
 
         bounds = [(0.005, 0.5), (1, 10), (0.1, 5.0)]
-        print(f"[symple_plot] Optimizing background parameters... (fast_opt={fast_opt}, workers={workers})")
+        print(f"[symple_plot] Optimizing background parameters... (pad_mode='{pad_mode}', fast_opt={fast_opt}, workers={workers})")
         
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
