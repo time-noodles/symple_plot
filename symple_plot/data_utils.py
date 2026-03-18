@@ -2,6 +2,8 @@
 from typing import List, Tuple, Union, Any, Optional
 import numpy as np
 import pandas as pd
+import itertools
+from scipy.signal import find_peaks
 
 
 def ensure_2d(data: Any) -> List[Any]:
@@ -322,3 +324,79 @@ def remove_background(
         print(f"[symple_plot] Optimization finished: fc={fc:.4f}, r={r}, amp={amp:.4f}")
 
     return _apply_beads(fc, int(r), amp, int(Nit))
+
+def list_1d(l_2d: Any) -> List[Any]:
+    """2次元のリスト（または配列のリスト）を1次元に平坦化します。
+
+    Args:
+        l_2d (Any): 平坦化したい2次元構造のデータ。
+
+    Returns:
+        List[Any]: 1次元に展開されたリスト。
+    """
+    try:
+        # itertools を使った高速な平坦化
+        return list(itertools.chain.from_iterable(l_2d))
+    except TypeError:
+        # すでに1次元だった場合のフォールバック
+        return list(l_2d)
+
+def f_peak(
+    Y: Any, 
+    mode: str = '+-',
+    distance: Optional[int] = None, 
+    height: Optional[float] = None, 
+    rel_height: Optional[float] = None,
+    **kwargs: Any
+) -> np.ndarray:
+    """データ配列からピーク（山・谷）のインデックスを抽出します。
+    内部で正規化（0.0〜1.0）を行うため、相対的な高さでの指定が容易です。
+
+    Args:
+        Y (Any): ピークを探す対象のデータ。
+        mode (str, optional): 探索方向。'+'(山のみ), '-'(谷のみ), '+-'(両方). Defaults to '+-'.
+        distance (int, optional): 隣接するピーク間の最小距離（サンプル数）. Defaults to None.
+        height (float, optional): ピークの絶対値のしきい値. Defaults to None.
+        rel_height (float, optional): 最大振幅に対する割合（0.0〜1.0）で指定するしきい値. Defaults to None.
+        **kwargs: scipy.signal.find_peaks に渡される追加引数。
+
+    Returns:
+        np.ndarray: 見つかったピークのインデックス配列。
+    """
+    vy = valid_xy(Y)[0]
+    if len(vy) == 0: return np.array([], dtype=int)
+    
+    ymin, ymax = np.nanmin(vy), np.nanmax(vy)
+    if ymax == ymin:
+        Y_norm = vy - ymin
+    else:
+        Y_norm = (vy - ymin) / (ymax - ymin)
+
+    def _find(signal_norm: np.ndarray, target_height: Optional[float]) -> np.ndarray:
+        args = kwargs.copy()
+        if distance is not None:
+            args['distance'] = distance
+        if rel_height is not None:
+            args['height'] = rel_height
+        elif target_height is not None:
+            args['height'] = target_height
+        peaks, _ = find_peaks(signal_norm, **args)
+        return peaks
+
+    peaks_pos = np.array([], dtype=int)
+    peaks_neg = np.array([], dtype=int)
+
+    # 上に凸のピーク（山）の抽出
+    if '+' in mode:
+        h = (height - ymin) / (ymax - ymin) if height is not None and ymax != ymin else None
+        peaks_pos = _find(Y_norm, h)
+        
+    # 下に凸のピーク（谷）の抽出：信号を反転させて探索
+    if '-' in mode:
+        h_inv = (ymax - height) / (ymax - ymin) if height is not None and ymax != ymin else None
+        peaks_neg = _find(1.0 - Y_norm, h_inv)
+        
+    # インデックスを結合して昇順にソート
+    all_peaks = np.unique(np.concatenate([peaks_pos, peaks_neg]))
+    all_peaks.sort()
+    return all_peaks
