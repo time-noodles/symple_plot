@@ -178,47 +178,27 @@ def sigmoid(x):
 
 def remove_background(
     signal: Union[List[float], np.ndarray], 
-    fc: float = 0.1, 
+    fc: float = 0.01, 
     d: int = 1, 
     r: int = 6, 
     amp: float = 0.8, 
     Nit: int = 15, 
     pen: str = 'L1_v2', 
-    pad_mode: str = 'sigmoid',   # 🌟 作者推奨の sigmoid をデフォルトに変更
+    pad_mode: str = 'sigmoid', 
     pad_len: Optional[int] = None,
-    xscale_l: float = 30.0,      # 🌟 作者推奨のデフォルト値 30
-    xscale_r: float = 30.0,      # 🌟 作者推奨のデフォルト値 30
-    dx: float = 1.0,             # 🌟 作者推奨のデフォルト値 1.0
+    xscale_l: float = 30.0, 
+    xscale_r: float = 30.0, 
+    dx: float = 1.0,
     auto_opt: bool = False,
     max_iter: int = 10,
     fast_opt: bool = True,
-    workers: int = 1
+    workers: int = 1,
+    floor_percentile: float = 60.0  # 🌟 NEW: ベースライン（フロア）とみなすデータの下位パーセンテージ
 ) -> np.ndarray:
     """pybeadsを用いてシグナルデータからベースライン成分を高精度に除去します。
     デフォルトで pybeads 作者推奨のシグモイド関数によるゼロ・グラウンディングパディングが適用されます。
 
     ※ 使用には `pip install pybeads` が必要です。
-
-    Args:
-        signal (Union[List[float], np.ndarray]): 対象の1次元シグナルデータ。
-        fc (float, optional): カットオフ周波数. Defaults to 0.1.
-        d (int, optional): フィルタの次数. Defaults to 1.
-        r (int, optional): 非対称性パラメータ. Defaults to 6.
-        amp (float, optional): 正則化パラメータの乗数. Defaults to 0.8.
-        Nit (int, optional): 反復回数. Defaults to 15.
-        pen (str, optional): ペナルティ関数の種類. Defaults to 'L1_v2'.
-        pad_mode (str, optional): 端点のパディング手法 ('sigmoid', 'reflect_odd', 'edge', 'none'). Defaults to 'sigmoid'.
-        pad_len (Optional[int], optional): パディング長 (reflect_odd等で使用). Defaults to None.
-        xscale_l (float, optional): sigmoidパディング時の左側スケール. Defaults to 30.0.
-        xscale_r (float, optional): sigmoidパディング時の右側スケール. Defaults to 30.0.
-        dx (float, optional): sigmoidパディング時のステップ. Defaults to 1.0.
-        auto_opt (bool, optional): Trueで最適な fc, r, amp を自動探索. Defaults to False.
-        max_iter (int, optional): auto_opt=True 時の探索回数. Defaults to 10.
-        fast_opt (bool, optional): 探索中の計算を間引き高速化. Defaults to True.
-        workers (int, optional): 最適化に使用するCPUコア数 (-1で全コア). Defaults to 1.
-
-    Returns:
-        np.ndarray: バックグラウンドが除去されたクリーンな配列。
     """
     try:
         import pybeads as be
@@ -228,18 +208,16 @@ def remove_background(
 
     signal_arr = np.asarray(signal, dtype=float)
 
-    def _apply_beads(t_fc: float, t_r: int, t_amp: float, current_Nit: int) -> np.ndarray:
-        # 🌟 指定されたモードでパディング処理
+    def _apply_beads(t_fc: float, t_r: int, t_amp: float, current_Nit: int) -> Tuple[np.ndarray, np.ndarray]:
         if pad_mode == 'sigmoid':
             def sigmoid(x_val):
-                return 1 / (1 + np.exp(-np.clip(x_val, -100, 100))) # オーバーフロー防止のclip
+                return 1 / (1 + np.exp(-np.clip(x_val, -100, 100))) 
             
             pad_l = signal_arr[0] * sigmoid(1 / xscale_l * np.arange(-5 * xscale_l, 5 * xscale_l, dx))
             pad_r = signal_arr[-1] * sigmoid(-1 / xscale_r * np.arange(-5 * xscale_r, 5 * xscale_r, dx))
             
             padded_signal = np.concatenate([pad_l, signal_arr, pad_r])
-            p_len_l = len(pad_l)
-            p_len_r = len(pad_r)
+            p_len_l, p_len_r = len(pad_l), len(pad_r)
             
         elif pad_mode == 'reflect_odd':
             p_len = pad_len if pad_len is not None else max(len(signal_arr) // 10, 10)
@@ -258,7 +236,6 @@ def remove_background(
                 padded_signal = np.pad(signal_arr, p_len, mode='edge')
             p_len_l = p_len_r = p_len
         
-        # pybeadsのパラメータ構築
         lam0 = 0.5 * t_amp
         lam1 = 5.0 * t_amp
         lam2 = 4.0 * t_amp
@@ -272,11 +249,7 @@ def remove_background(
         import inspect
         try:
             sig = inspect.signature(be.beads)
-            kwargs = {}
-            params = list(sig.parameters.keys())
-            for param in params[1:]:
-                if param in val_map:
-                    kwargs[param] = val_map[param]
+            kwargs = {param: val_map[param] for param in list(sig.parameters.keys())[1:] if param in val_map}
             clean_signal, _bg, _cost = be.beads(padded_signal, **kwargs)
         except Exception:
             clean_signal, _bg, _cost = be.beads(
@@ -285,20 +258,21 @@ def remove_background(
                 Nit=int(current_Nit), pen=str(pen)
             )
 
-        # パディング部分を切り落として元の長さに戻す
         if p_len_l == 0 and p_len_r == 0:
-            return clean_signal
-        return clean_signal[p_len_l:-p_len_r]
+            return clean_signal, _bg
+        return clean_signal[p_len_l:-p_len_r], _bg[p_len_l:-p_len_r]
 
     if auto_opt:
         from scipy.optimize import differential_evolution
         import warnings
 
-        opt_Nit = max(3, int(Nit * 0.3)) if fast_opt else int(Nit)
+        opt_Nit = max(5, int(Nit * 0.4)) if fast_opt else int(Nit)
         opt_popsize = 3 if fast_opt else 5
-        
-        # 🌟 端点効果を評価から除外するためのトリム幅 (全体の5%または最低5点)
         trim = max(len(signal_arr) // 20, 5)
+        
+        # スケールに依存しない評価にするための正規化
+        signal_scale = np.max(signal_arr) - np.min(signal_arr)
+        if signal_scale == 0: signal_scale = 1.0
 
         def objective(params: List[float]) -> float:
             t_fc, t_r, t_amp = params
@@ -307,27 +281,33 @@ def remove_background(
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 try:
-                    S_clean = _apply_beads(t_fc, t_r_int, t_amp, opt_Nit)
+                    c_sig, b_sig = _apply_beads(t_fc, t_r_int, t_amp, opt_Nit)
+                    c_eval = c_sig[trim:-trim] / signal_scale
+                    b_eval = b_sig[trim:-trim] / signal_scale
                     
-                    # 🌟 評価を中央のデータに限定し、端点の跳ね上がりを意図的に無視する
-                    S_eval = S_clean[trim:-trim]
+                    # 🌟 1. フロア(ベースライン)とピークの分離
+                    # 下位 X% (デフォルト60%) のデータを「フロア」、上位を「ピーク」と定義
+                    pct_val = np.percentile(c_eval, floor_percentile)
+                    is_floor = c_eval <= pct_val
+                    is_peak = c_eval > pct_val
                     
-                    med = np.median(S_eval)
-                    mad = np.median(np.abs(S_eval - med))
-                    if mad == 0: mad = 1e-9
+                    # 🌟 2. ユーザー提案A: ピーク面積の最大化
+                    peak_area = np.mean(c_eval[is_peak]) if np.any(is_peak) else 0.0
                     
-                    threshold = med + 3 * mad
-                    normal_mask = S_eval <= threshold
-                    outlier_mask = S_eval > threshold
+                    # 🌟 3. ユーザー提案B: フロア領域におけるバックグラウンドの膨らみ(面積)を最小化
+                    # yminを基準としたベースラインの浮き上がりの総和
+                    bg_bulge = np.mean(b_eval[is_floor] - np.min(b_eval))
                     
-                    normal_vals = S_eval[normal_mask]
-                    outlier_vals = S_eval[outlier_mask]
+                    # 🌟 4. アンカー (ズル防止): フロア領域ではベースラインが信号にピッタリ張り付くこと
+                    # これがないとAIはベースラインを平坦な直線に落として bg_bulge をゼロにするズルをします
+                    floor_gap = np.mean(c_eval[is_floor])
                     
-                    A = np.abs(np.mean(normal_vals)) + np.std(normal_vals) if len(normal_vals) > 0 else 1e9
-                    B = np.max(outlier_vals) if len(outlier_vals) > 0 else 0.0
+                    # 🌟 5. 致死的ペナルティ: ベースラインが信号より上（沈み込み）に行ったら即アウト
+                    neg_pen = np.sum(np.abs(c_eval[c_eval < 0])) * 1000.0
                     
-                    neg_penalty = np.abs(np.min(S_eval)) if np.min(S_eval) < 0 else 0.0
-                    loss = -B + A + (neg_penalty * 0.5)
+                    # 究極のバランス関数:
+                    # 密着(gap)を最優先で守りつつ、膨らみ(bulge)を抑え、ピーク(area)を伸ばす
+                    loss = (floor_gap * 10.0) + bg_bulge - peak_area + neg_pen
                     
                     if np.isnan(loss) or np.isinf(loss):
                         return 1e9
@@ -335,8 +315,9 @@ def remove_background(
                 except Exception:
                     return 1e9
 
-        bounds = [(0.005, 0.5), (1, 10), (0.1, 5.0)]
-        print(f"[symple_plot] Optimizing background parameters... (pad_mode='{pad_mode}', fast_opt={fast_opt}, workers={workers})")
+        # 評価関数が堅牢になったため、fcの探索範囲を再び広げ、自由なカーブを許容します
+        bounds = [(0.001, 0.1), (1, 10), (0.1, 5.0)]
+        print(f"[symple_plot] Optimizing background parameters... (pad_mode='{pad_mode}', workers={workers})")
         
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
@@ -351,7 +332,8 @@ def remove_background(
         amp = res.x[2]
         print(f"[symple_plot] Optimization finished: fc={fc:.4f}, r={r}, amp={amp:.4f}")
 
-    return _apply_beads(fc, int(r), amp, int(Nit))
+    final_clean, _ = _apply_beads(fc, int(r), amp, int(Nit))
+    return final_clean
 
 def list_1d(l_2d: Any) -> List[Any]:
     """2次元のリスト（または配列のリスト）を1次元に平坦化します。
