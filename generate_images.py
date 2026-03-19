@@ -215,6 +215,19 @@ def main():
     fig9.savefig("images/19_style_labels.png", dpi=300, bbox_inches='tight')
     plt.close(fig9)
 
+    # 20. 回帰と補助線 (4-1)
+    fig7, sp7 = create_symple_plots(1, 2, figsize=(12, 5))
+    x_reg = np.linspace(-5, 5, 30)
+    sp7[0].scatter(x_reg, 0.5 * x_reg**3 - 2 * x_reg + np.random.normal(0, 5, 30), alab=["X", "Y"])
+    sp7[0].Regression(regr=3)
+    sp7[0].ax.set_title("Polynomial Regression (regr=3)")
+    sp7[1].scatter(np.linspace(0.1, 5, 50), 2.5 * np.exp(-1.2 * np.linspace(0.1, 5, 50)) + np.random.normal(0, 0.05, 50), 
+                   alab=["Time (s)", "Intensity"], vx=[1, 3], vcol='red', vstyle='--', hy=0, hcol='blue', hstyle=':')
+    sp7[1].Regression(regr=lambda x, a, b: a * np.exp(-b * x), auto_p0=True, bounds=([0, 0], [10, 5]))
+    sp7[1].ax.set_title("Global Auto Fit & Guide Lines")
+    fig7.savefig("images/20_regression.png", dpi=300, bbox_inches='tight')
+    plt.close(fig7)
+
     set_style('default')
     print("\n✅ All example images generated successfully.")
 
