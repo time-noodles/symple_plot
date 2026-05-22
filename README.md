@@ -6,16 +6,18 @@
 ---
 ## 目次 (Table of Contents)
 
-- [✨ 主な特徴 (Features)](#-主な特徴-features)
-- [📦 インストール (Installation)](#-インストール-installation)
-- [🚀 クイックスタート (Quick Start)](#-クイックスタート-quick-start)
-- [🔲 グラフ枠の生成 (`create_symple_plots`)](#-グラフ枠の生成-create_symple_plots)
-- [🎨 コア描画メソッド (Core Plotting Methods)](#-コア描画メソッド-core-plotting-methods)
-  - [1. `sp.plot()` と `sp.scatter()`](#1-spplot-と-spscatter)
-  - [2. `sp.imshow()` と `sp.tdscatter()`](#2-spimshow-と-sptdscatter)
-- [✨ symple_plot 固有の共通引数 (Unique Parameters)](#-symple_plot-固有の共通引数-unique-parameters)
-- [📚 応用ギャラリー・便利ツール (Advanced Gallery & Utilities)](#-応用ギャラリー便利ツール-advanced-gallery--utilities)
-- [謝辞 (Acknowledgments)](#謝辞-acknowledgments)
+- [symple\_plot](#symple_plot)
+  - [目次 (Table of Contents)](#目次-table-of-contents)
+  - [✨ 主な特徴 (Features)](#-主な特徴-features)
+  - [📦 インストール (Installation)](#-インストール-installation)
+  - [🚀 クイックスタート (Quick Start)](#-クイックスタート-quick-start)
+  - [🔲 グラフ枠の生成 (`create_symple_plots`)](#-グラフ枠の生成-create_symple_plots)
+  - [🎨 コア描画メソッド (Core Plotting Methods)](#-コア描画メソッド-core-plotting-methods)
+    - [1. `sp.plot()` と `sp.scatter()`](#1-spplot-と-spscatter)
+    - [2. `sp.imshow()` と `sp.tdscatter()`](#2-spimshow-と-sptdscatter)
+  - [✨ symple\_plot 固有の共通引数 (Unique Parameters)](#-symple_plot-固有の共通引数-unique-parameters)
+  - [📚 応用ギャラリー・便利ツール (Advanced Gallery \& Utilities)](#-応用ギャラリー便利ツール-advanced-gallery--utilities)
+  - [謝辞 (Acknowledgments)](#謝辞-acknowledgments)
 
 ---
 
@@ -226,4 +228,4 @@ The core functionalities and documentation of this library were developed with t
 
 ---
 
-Copyright (c) 2026 Your Name. All rights reserved.
+Copyright (c) 2026 time-noodles. All rights reserved.
