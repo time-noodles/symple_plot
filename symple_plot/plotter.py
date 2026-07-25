@@ -186,6 +186,70 @@ class symple_plot:
         self.current_ymin, self.current_ymax = None, None
         self.current_zmin, self.current_zmax = None, None
 
+    def __getattr__(self, name: str) -> Any:
+        """self.ax（MatplotlibのAxes）の属性やメソッドへ自動的にアクセスを転送（パススルー）します。
+        これにより、sp.set_title() や sp.grid() などのAxesメソッドを直接呼び出すことができます。
+        """
+        if hasattr(self.ax, name):
+            return getattr(self.ax, name)
+        raise AttributeError(f"'{self.__class__.__name__}' object and its underlying 'Axes' have no attribute '{name}'")
+
+    def _normalize_kwargs(self, kwargs: dict) -> dict:
+        """Matplotlib標準の引数名を symple_plot 固有の引数名に正規化（エイリアス吸収）します。
+        既存の短縮引数（alab, cx, cy, lab, col等）を維持しつつ、Matplotlib標準名もサポートします。
+        """
+        kwargs = dict(kwargs)
+
+        # 1. 軸ラベル: xlabel, ylabel, zlabel -> alab
+        xlabel = kwargs.pop('xlabel', None)
+        ylabel = kwargs.pop('ylabel', None)
+        zlabel = kwargs.pop('zlabel', None)
+        if 'alab' not in kwargs and (xlabel is not None or ylabel is not None):
+            labels = [xlabel if xlabel is not None else "", ylabel if ylabel is not None else ""]
+            if zlabel is not None:
+                labels.append(zlabel)
+            kwargs['alab'] = labels
+
+        # 2. 描画範囲: xlim -> cx, ylim -> cy, zlim -> cz
+        if 'xlim' in kwargs and 'cx' not in kwargs:
+            kwargs['cx'] = kwargs.pop('xlim')
+        if 'ylim' in kwargs and 'cy' not in kwargs:
+            kwargs['cy'] = kwargs.pop('ylim')
+        if 'zlim' in kwargs and 'cz' not in kwargs:
+            kwargs['cz'] = kwargs.pop('zlim')
+
+        # 3. 凡例: label -> lab
+        if 'label' in kwargs and 'lab' not in kwargs:
+            kwargs['lab'] = kwargs.pop('label')
+
+        # 4. 色: color, c -> col
+        if 'color' in kwargs and 'col' not in kwargs:
+            kwargs['col'] = kwargs.pop('color')
+        elif 'c' in kwargs and 'col' not in kwargs:
+            kwargs['col'] = kwargs.pop('c')
+
+        # 5. 線種・線幅: ls -> linestyle, lw -> linewidth
+        if 'ls' in kwargs and 'linestyle' not in kwargs:
+            kwargs['linestyle'] = kwargs.pop('ls')
+        if 'lw' in kwargs and 'linewidth' not in kwargs:
+            kwargs['linewidth'] = kwargs.pop('lw')
+
+        # 6. 目盛り非表示: hide_xticks -> nox, hide_yticks -> noy
+        if kwargs.pop('hide_xticks', False):
+            kwargs['nox'] = True
+        if kwargs.pop('hide_yticks', False):
+            kwargs['noy'] = True
+
+        # 7. 対数スケール: xscale='log' -> logx=True, yscale='log' -> logy=True
+        if kwargs.get('xscale') == 'log':
+            kwargs['logx'] = True
+        if kwargs.get('yscale') == 'log':
+            kwargs['logy'] = True
+        if kwargs.get('zscale') == 'log':
+            kwargs['logz'] = True
+
+        return kwargs
+
     def setxy(self, X, Y):
         X, Y = ensure_2d(X), ensure_2d(Y)
         self.X, self.Y = pad_list(X), pad_list(Y)
@@ -472,6 +536,7 @@ class symple_plot:
         Returns:
             Axes: 設定が適用されたMatplotlib Axesオブジェクト。
         """
+        kwargs = self._normalize_kwargs(kwargs)
         self.setxy(X, Y)
         self.sca = []
         self._apply_common_settings(**kwargs)
@@ -498,6 +563,7 @@ class symple_plot:
         Returns:
             Axes: 描画対象のMatplotlib Axesオブジェクト。
         """
+        kwargs = self._normalize_kwargs(kwargs)
         self.setxy(X, Y)
         self.col_c(**kwargs)
         marker_size = kwargs.get('size', 40)
@@ -551,6 +617,7 @@ class symple_plot:
         Returns:
             Axes: 描画対象のMatplotlib Axesオブジェクト。
         """
+        kwargs = self._normalize_kwargs(kwargs)
         self.setxy(X, Y)
         self.col_c(**kwargs)
         linestyles = kwargs.get('linestyle', ['-'])
@@ -643,6 +710,7 @@ class symple_plot:
         Returns:
             Tuple[Axes, List[Any]]: Axesオブジェクトと、生成されたPathCollectionのリスト。
         """
+        kwargs = self._normalize_kwargs(kwargs)
         self.setxyz(X, Y, Z)
         self.col_c(**kwargs)
         marker_size = kwargs.get('size', 40)
@@ -665,6 +733,7 @@ class symple_plot:
         Returns:
             Tuple[Axes, List[Any]]: Axesオブジェクトと生成されたラインオブジェクトのリスト。
         """
+        kwargs = self._normalize_kwargs(kwargs)
         self.setxyz(X, Y, Z)
         self.col_c(**kwargs)
         self.sca = []
@@ -689,6 +758,7 @@ class symple_plot:
         Returns:
             Tuple[Axes, Any]: AxesオブジェクトとAxesImageオブジェクト。
         """
+        kwargs = self._normalize_kwargs(kwargs)
         Z = np.array(Z)
         if Z.ndim == 3: Z = Z[0]
         zx, zy = Z.shape
