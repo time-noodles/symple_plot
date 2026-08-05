@@ -4,7 +4,7 @@ import os
 import string
 import pandas as pd
 import matplotlib.pyplot as plt
-from matplotlib.ticker import Formatter
+from matplotlib.ticker import Formatter, LogLocator, LogFormatterSciNotation
 from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.axes import Axes
 from sklearn.metrics import r2_score
@@ -278,6 +278,25 @@ class symple_plot:
         else:
             self.COL = [self.col for _ in range(num_data)]
 
+    def _setup_log_axis(self, axis: Any, vmin: Optional[float], vmax: Optional[float]) -> None:
+        """対数軸の主要・副目盛り刻みとラベルフォーマットをデータ範囲に応じて自動最適化します。
+        デケード数（桁数）が少ない場合でも目盛り数値ラベルが不十分・スカスカになるのを防止します。
+        """
+        if vmin is None or vmax is None or vmin <= 0 or vmax <= 0:
+            return
+        log_range = abs(np.log10(vmax) - np.log10(vmin))
+        
+        if log_range < 2.0:
+            subs_val = (1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0) if log_range < 1.0 else (1.0, 2.0, 5.0)
+            axis.set_major_locator(LogLocator(base=10.0, subs=subs_val))
+            axis.set_major_formatter(LogFormatterSciNotation(labelOnlyBase=False))
+        elif log_range < 3.5:
+            axis.set_major_locator(LogLocator(base=10.0, subs='auto'))
+            axis.set_major_formatter(LogFormatterSciNotation(labelOnlyBase=False))
+        else:
+            axis.set_major_locator(LogLocator(base=10.0, subs=(1.0,)))
+            axis.set_major_formatter(LogFormatterSciNotation(labelOnlyBase=True))
+
     def _apply_common_settings(self, **kwargs):
         self.alab_fs = kwargs.get('alab_fs', self.alab_fs)  # 変更
         self.tick_fs = kwargs.get('tick_fs', self.tick_fs)  # 変更            
@@ -340,8 +359,17 @@ class symple_plot:
         if cx: self.current_xmin, self.current_xmax = cx[0], cx[1]
         if cy: self.current_ymin, self.current_ymax = cy[0], cy[1]
 
-        if is_logx: self.ax.set_xscale('log')
-        if is_logy: self.ax.set_yscale('log')
+        if is_logx:
+            self.ax.set_xscale('log')
+            self._setup_log_axis(self.ax.xaxis, self.current_xmin, self.current_xmax)
+        else:
+            self.ax.xaxis.set_major_formatter(AutoSmartFormatter())
+
+        if is_logy:
+            self.ax.set_yscale('log')
+            self._setup_log_axis(self.ax.yaxis, self.current_ymin, self.current_ymax)
+        else:
+            self.ax.yaxis.set_major_formatter(AutoSmartFormatter())
 
         self.ax.set_xlim(self.current_xmin, self.current_xmax)
         self.ax.set_ylim(self.current_ymin, self.current_ymax)
@@ -356,12 +384,12 @@ class symple_plot:
                 self.current_zmax = max(self.current_zmax, new_zmax)
                 
             if cz := kwargs.get('cz'): self.current_zmin, self.current_zmax = cz[0], cz[1]
-            if is_logz: self.ax.set_zscale('log')
+            if is_logz:
+                self.ax.set_zscale('log')
+                self._setup_log_axis(self.ax.zaxis, self.current_zmin, self.current_zmax)
+            else:
+                self.ax.zaxis.set_major_formatter(AutoSmartFormatter())
             self.ax.set_zlim(self.current_zmin, self.current_zmax)
-            if not is_logz: self.ax.zaxis.set_major_formatter(AutoSmartFormatter())
-
-        if not is_logx: self.ax.xaxis.set_major_formatter(AutoSmartFormatter())
-        if not is_logy: self.ax.yaxis.set_major_formatter(AutoSmartFormatter())
         
         self.ax.tick_params(which='major', labelsize=self.tick_fs)
         
