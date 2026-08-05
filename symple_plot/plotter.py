@@ -404,7 +404,7 @@ class symple_plot:
             self.ax.tick_params(which='major', direction='in', length=self.tlength, 
                                 top=top_on, bottom=bottom_on, left=left_on, right=right_on, labelsize=self.tick_fs)
             self.ax.tick_params(which='minor', direction='in', length=self.tlength * 0.5, 
-                                top=top_on, bottom=bottom_on, left=left_on, right=right_on)
+                                top=top_on, bottom=bottom_on, left=left_on, right=right_on, labelsize=self.tick_fs)
         else:
             self.ax.tick_params(axis='both', labelsize=self.tick_fs, length=self.tlength)
 
